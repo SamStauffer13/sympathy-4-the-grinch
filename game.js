@@ -5,6 +5,7 @@ const W = 800, H = 450, GROUND = 370, SCALE = 2
 const RUN_SECONDS = 132 // the length of the song, so the game ends when it does
 const SONG_ID = '8Lyvv_bhzD0' // YouTube video that plays during the run
 const SPEED = 280, GRAVITY = 1520, JUMP = 760
+const SPEED_RAMP = 0.2 // how much faster the run gets by the end
 const GX = 170 // the Grinch's centre x
 const CHAR_SCALE = 0.63 // character sprite px -> game px
 const OBSTACLE_MAX = [105, 80] // widest and tallest an obstacle's art is drawn
@@ -29,6 +30,7 @@ window.onYouTubeIframeAPIReady = () => {
   player = new YT.Player('music', {
     width: 200, height: 200, videoId: SONG_ID,
     playerVars: { controls: 0, disablekb: 1, playsinline: 1, rel: 0, iv_load_policy: 3 },
+    events: { onStateChange: e => { if (e.data === 1 && starting) start() } }, // 1 = playing
   })
 }
 document.head.append(Object.assign(document.createElement('script'), { src: 'https://www.youtube.com/iframe_api' }))
@@ -72,16 +74,17 @@ function drawSprite(s, cx, feet, k) {
 }
 
 let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, message, messageT, messageDuration, confetti, grinchBox
-let clock = 0, dist = 0
+let clock = 0, dist = 0, speed = SPEED, starting = false
 const snow = Array.from({ length: 50 }, () => ({ x: rand(0, W), y: rand(0, H), r: rand(1, 3) }))
 
 function reset() {
-  progress = 0; y = 0; vy = 0; obstacles = []; spawnIn = 500
+  progress = 0; y = 0; vy = 0; obstacles = []; spawnIn = 500; speed = SPEED
   lunge = 0; invuln = 0; shake = 0; messageT = 0; confetti = []
 }
 
 function showScreen(h, p, n, b, clue) {
   title.textContent = h; text.textContent = p; note.textContent = n; button.textContent = b
+  button.disabled = false
   text.hidden = !p
   clueCard.hidden = !clue
   if (clue) {
@@ -91,13 +94,23 @@ function showScreen(h, p, n, b, clue) {
   screen.hidden = false
 }
 
+// the tap starts the song; the run begins once it is playing, or after a few seconds without it
+function ready() {
+  if (!player?.playVideo) return start()
+  starting = true
+  button.disabled = true
+  button.textContent = 'Starting the music...'
+  player.seekTo(0)
+  player.playVideo()
+  setTimeout(() => starting && start(), 5000)
+}
+
 function start() {
+  starting = false
   reset()
   state = 'run'
   screen.hidden = true
   button.blur()
-  player?.seekTo?.(0)
-  player?.playVideo?.()
 }
 
 function win() {
@@ -150,17 +163,18 @@ function spawn() {
 function update(dt) {
   progress += dt
   if (player?.getPlayerState?.() === 1) progress = player.getCurrentTime() // stay in step with the song
-  dist += SPEED * dt
+  speed = SPEED * (1 + SPEED_RAMP * Math.min(progress / RUN_SECONDS, 1))
+  dist += speed * dt
   vy -= GRAVITY * dt
   y += vy * dt
   if (y <= 0) { y = 0; vy = 0 }
 
-  spawnIn -= SPEED * dt
+  spawnIn -= speed * dt
   if (spawnIn <= 0 && progress < RUN_SECONDS - 3) {
     spawn()
     spawnIn = rand(450, 720)
   }
-  obstacles.forEach(o => { o.x -= SPEED * dt })
+  obstacles.forEach(o => { o.x -= speed * dt })
   obstacles = obstacles.filter(o => o.x > -150)
 
   invuln -= dt; messageT -= dt; shake = Math.max(0, shake - dt); lunge = Math.max(0, lunge - dt / 4)
@@ -178,7 +192,7 @@ function update(dt) {
 }
 
 function updateFx(dt) {
-  const drift = state === 'run' ? SPEED * dt * 0.3 : 0
+  const drift = state === 'run' ? speed * dt * 0.3 : 0
   snow.forEach(f => {
     f.y = (f.y + 40 * dt) % H
     f.x = (f.x - drift + W) % W
@@ -237,7 +251,7 @@ function draw() {
   for (let x = -(dist % 80); x < W; x += 80) ctx.fillRect(x, GROUND + 30, 36, 3)
 
   if (state === 'run' || state === 'win') {
-    const finishX = GX + 60 + (RUN_SECONDS - progress) * SPEED
+    const finishX = GX + 60 + (RUN_SECONDS - progress) * speed
     const finishW = finish.width * FINISH_HEIGHT / finish.height
     if (finishX < W) ctx.drawImage(finish, finishX, GROUND + 4 - FINISH_HEIGHT, finishW, FINISH_HEIGHT)
   }
@@ -278,7 +292,7 @@ window.addEventListener('keydown', e => {
     jump()
   }
 })
-button.addEventListener('click', start)
+button.addEventListener('click', ready)
 
 reset()
 state = 'start'
