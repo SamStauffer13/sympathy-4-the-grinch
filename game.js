@@ -1,4 +1,5 @@
-const CLUE = 'Final Clue: Lauren did 9/11' // shown when the player wins
+const CLUE_LABEL = 'Final Clue' // small tag above the clue
+const CLUE = 'Lauren did 9/11' // shown when the player wins
 
 const W = 800, H = 450, GROUND = 370, SCALE = 2
 const RUN_SECONDS = 45 // seconds of running needed to win
@@ -19,6 +20,8 @@ ctx.imageSmoothingQuality = 'high'
 
 const screen = document.getElementById('screen')
 const [title, text, note, button] = ['h1', 'p', 'small', 'button'].map(s => screen.querySelector(s))
+
+const clueCard = document.getElementById('clue')
 
 const rand = (a, b) => a + Math.random() * (b - a)
 
@@ -59,8 +62,14 @@ function reset() {
   lunge = 0; invuln = 0; shake = 0; messageT = 0; confetti = []
 }
 
-function showScreen(h, p, n, b) {
+function showScreen(h, p, n, b, clue) {
   title.textContent = h; text.textContent = p; note.textContent = n; button.textContent = b
+  text.hidden = !p
+  clueCard.hidden = !clue
+  if (clue) {
+    clueCard.querySelector('span').textContent = CLUE_LABEL
+    clueCard.querySelector('strong').textContent = clue
+  }
   screen.hidden = false
 }
 
@@ -77,7 +86,7 @@ function win() {
   confetti = Array.from({ length: 90 }, () => ({
     x: rand(0, W), y: rand(-H, 0), vx: rand(-60, 60), vy: rand(150, 350), c: colors[Math.floor(rand(0, colors.length))],
   }))
-  setTimeout(() => showScreen('You got away with it!', CLUE, 'Show this to the grown-up', 'Rob Santa again'), 900)
+  setTimeout(() => showScreen('You got away with it!', '', 'Show this to the grown-up', 'Rob Santa again', CLUE), 900)
 }
 
 function hit(o) {

@@ -12,7 +12,7 @@ The finish-line art (the American Dream) is `img/american-dream.png`; it also sh
 Replace a PNG keeping its name and size. To add an obstacle, drop a PNG in `img/obstacles/` and add an entry to the manifest, including a `name`; that name is shown when a player jumps over it. The game picks obstacles at random from every non-character entry.
 
 ## Change the clue
-Edit the `CLUE` line at the top of `game.js`. Commit to `main`; the site redeploys in about a minute.
+Edit the `CLUE` line at the top of `game.js` (and `CLUE_LABEL`, the small tag above it, if you want it to say something other than "Final Clue"). Commit to `main`; the site redeploys in about a minute.
 
 ## Tweak the game
 Constants at the top of `game.js`: `RUN_SECONDS` (how long to win), `PENALTY` (seconds lost per hit), `SPEED`.

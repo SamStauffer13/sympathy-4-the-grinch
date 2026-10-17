@@ -17,6 +17,19 @@
       #screen[hidden] { display: none; }
       h1 { margin: 0; font-size: clamp(24px, 6vw, 64px); color: #ff2bd6; text-shadow: 0.05em 0.05em #00f0ff; }
       p { margin: 0; max-width: 28em; white-space: pre-wrap; font-family: Arial, sans-serif; font-weight: bold; font-size: clamp(16px, 3vw, 30px); }
+      #clue {
+        position: relative; margin: 2.5vmin 0 1vmin; padding: 3.5vmin 5vmin 2.8vmin; max-width: 85%; box-sizing: border-box;
+        background: #12001f; border: max(3px, 0.5vmin) solid #39ff14; border-radius: 2vmin; box-shadow: max(4px, 1vmin) max(4px, 1vmin) #ff2bd6;
+        animation: pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      }
+      #clue[hidden] { display: none; }
+      #clue span {
+        position: absolute; top: 0; left: 50%; transform: translate(-50%, -55%); white-space: nowrap;
+        padding: 0.5vmin 2.5vmin; border-radius: 999px; background: #ff2bd6; color: #fff;
+        font-size: clamp(12px, 2.4vw, 24px); letter-spacing: 0.15em; text-transform: uppercase;
+      }
+      #clue strong { font-size: clamp(26px, 6.5vw, 70px); line-height: 1.1; text-shadow: 0.05em 0.05em #00f0ff; }
+      @keyframes pop { from { transform: scale(0.4) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
       small { font-family: Arial, sans-serif; font-size: clamp(12px, 2vw, 20px); color: #39ff14; }
       button {
         font: inherit; font-size: clamp(18px, 3.5vw, 36px); padding: 0.4em 1.2em; border: 0; border-radius: 999px;
@@ -30,6 +43,7 @@
       <div id="screen">
         <h1></h1>
         <p></p>
+        <div id="clue" hidden><span></span><strong></strong></div>
         <small></small>
         <button></button>
       </div>
