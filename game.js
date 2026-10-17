@@ -2,8 +2,8 @@ const CLUE_LABEL = 'Final Clue' // small tag above the clue
 const CLUE = 'Lauren did 9/11' // shown when the player wins
 
 const W = 800, H = 450, GROUND = 370, SCALE = 2
-const RUN_SECONDS = 45 // seconds of running needed to win
-const PENALTY = 5 // seconds lost when the Grinch hits something
+const RUN_SECONDS = 132 // the length of the song, so the game ends when it does
+const SONG_ID = '8Lyvv_bhzD0' // YouTube video that plays during the run
 const SPEED = 280, GRAVITY = 1520, JUMP = 760
 const GX = 170 // the Grinch's centre x
 const CHAR_SCALE = 0.63 // character sprite px -> game px
@@ -22,6 +22,24 @@ const screen = document.getElementById('screen')
 const [title, text, note, button] = ['h1', 'p', 'small', 'button'].map(s => screen.querySelector(s))
 
 const clueCard = document.getElementById('clue')
+
+// the game runs on its own clock, so it still works with the music muted, blocked or slow to load
+let player
+window.onYouTubeIframeAPIReady = () => {
+  player = new YT.Player('music', {
+    width: 200, height: 200, videoId: SONG_ID,
+    playerVars: { controls: 0, disablekb: 1, playsinline: 1, rel: 0, iv_load_policy: 3 },
+  })
+}
+document.head.append(Object.assign(document.createElement('script'), { src: 'https://www.youtube.com/iframe_api' }))
+
+const muteButton = document.getElementById('mute')
+let muted = false
+muteButton.addEventListener('click', () => {
+  muted = !muted
+  muted ? player?.mute?.() : player?.unMute?.()
+  muteButton.textContent = muted ? '🔇' : '🔊'
+})
 
 const rand = (a, b) => a + Math.random() * (b - a)
 
@@ -78,10 +96,13 @@ function start() {
   state = 'run'
   screen.hidden = true
   button.blur()
+  player?.seekTo?.(0)
+  player?.playVideo?.()
 }
 
 function win() {
   state = 'win'
+  player?.pauseVideo?.()
   const colors = ['#ff2bd6', '#39ff14', '#00f0ff', '#ffe600', '#ff2d2d']
   confetti = Array.from({ length: 90 }, () => ({
     x: rand(0, W), y: rand(-H, 0), vx: rand(-60, 60), vy: rand(150, 350), c: colors[Math.floor(rand(0, colors.length))],
@@ -91,7 +112,6 @@ function win() {
 
 function hit(o) {
   obstacles.splice(obstacles.indexOf(o), 1)
-  progress = Math.max(0, progress - PENALTY)
   lunge = 1; invuln = 1; shake = 0.35
   say(HIT_MESSAGE, 1.3)
 }
@@ -108,7 +128,7 @@ function drawMessage() {
   const popped = 1 + 2.70158 * p ** 3 + 1.70158 * p ** 2
   ctx.save()
   ctx.globalAlpha = Math.min(1, messageT / 0.4)
-  ctx.translate(W / 2, 90 - age * 25)
+  ctx.translate(W * 0.4, 90 - age * 25) // left of centre, clear of the video
   ctx.scale(0.4 + 0.6 * popped, 0.4 + 0.6 * popped)
   glitchText(message, 0, 0, 36)
   ctx.restore()
@@ -129,6 +149,7 @@ function spawn() {
 
 function update(dt) {
   progress += dt
+  if (player?.getPlayerState?.() === 1) progress = player.getCurrentTime() // stay in step with the song
   dist += SPEED * dt
   vy -= GRAVITY * dt
   y += vy * dt
@@ -261,7 +282,7 @@ button.addEventListener('click', start)
 
 reset()
 state = 'start'
-showScreen('Sympathy 4 the Grinch', "Rob Santa. Don't get caught.\nTap to jump over stuff. Make it to Whoville with the loot!", '', 'Loading...')
+showScreen('Sympathy 4 the Grinch', "Rob Santa. Don't get caught.\nTap to jump over stuff. Make it to Whoville with the loot!", 'Turn your sound on!', 'Loading...')
 button.disabled = true
 loadSprites().then(() => {
   button.disabled = false
