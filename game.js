@@ -34,7 +34,7 @@ async function loadSprites() {
     img.src = 'img/' + a.file
     await img.decode()
     const [bx, by, bw, bh] = a.contentBounds
-    sprites[a.id] = { img, bx, bw, bh, w: a.width, feetY: a.feetY }
+    sprites[a.id] = { img, name: a.name, bx, bw, bh, w: a.width, feetY: a.feetY }
   }))
   grinchBox = box(sprites['grinch-run-01'], CHAR_SCALE, 0.2)
 }
@@ -50,7 +50,7 @@ function drawSprite(s, cx, feet, k) {
   ctx.drawImage(s.img, cx - (s.w / 2) * k, feet - s.feetY * k, s.img.width * k, s.img.height * k)
 }
 
-let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, messageT, confetti, grinchBox
+let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, message, messageT, messageDuration, confetti, grinchBox
 let clock = 0, dist = 0
 const snow = Array.from({ length: 50 }, () => ({ x: rand(0, W), y: rand(0, H), r: rand(1, 3) }))
 
@@ -84,7 +84,25 @@ function hit(o) {
   obstacles.splice(obstacles.indexOf(o), 1)
   progress = Math.max(0, progress - PENALTY)
   lunge = 1; invuln = 1; shake = 0.35
-  messageT = 1.3
+  say(HIT_MESSAGE, 1.3)
+}
+
+function say(s, seconds) {
+  message = s
+  messageT = messageDuration = seconds
+}
+
+// bounce in, then drift up and fade out
+function drawMessage() {
+  const age = messageDuration - messageT
+  const p = Math.min(age / 0.25, 1) - 1
+  const popped = 1 + 2.70158 * p ** 3 + 1.70158 * p ** 2
+  ctx.save()
+  ctx.globalAlpha = Math.min(1, messageT / 0.4)
+  ctx.translate(W / 2, 90 - age * 25)
+  ctx.scale(0.4 + 0.6 * popped, 0.4 + 0.6 * popped)
+  glitchText(message, 0, 0, 36)
+  ctx.restore()
 }
 
 function jump() {
@@ -120,6 +138,12 @@ function update(dt) {
     const o = obstacles.find(o => GX + grinchBox.r > o.x + o.box.l && GX + grinchBox.l < o.x + o.box.r && y < o.box.h)
     if (o) hit(o)
   }
+  obstacles.forEach(o => {
+    if (!o.cleared && GX + grinchBox.l > o.x + o.box.r) {
+      o.cleared = true
+      say(o.s.name, 1.2)
+    }
+  })
   if (progress >= RUN_SECONDS) win()
 }
 
@@ -200,7 +224,7 @@ function draw() {
     drawSprite(sprites[`grinch-${pose}`], GX, GROUND + 4 - y, CHAR_SCALE)
   }
   if (state !== 'start') drawBar()
-  if (messageT > 0) glitchText(HIT_MESSAGE, W / 2, 90, 36)
+  if (messageT > 0) drawMessage()
 
   confetti.forEach(c => { ctx.fillStyle = c.c; ctx.fillRect(c.x, c.y, 8, 12) })
   ctx.restore()
