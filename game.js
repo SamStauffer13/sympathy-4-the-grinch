@@ -1,4 +1,4 @@
-const CLUE = 'final clue: Lauren did 911' // shown when the player wins
+const CLUE = 'final clue: Lauren did 9/11' // shown when the player wins
 
 const W = 800, H = 450, GROUND = 370, SCALE = 2
 const RUN_SECONDS = 45 // seconds of running needed to win
