@@ -30,7 +30,6 @@ window.onYouTubeIframeAPIReady = () => {
   player = new YT.Player('music', {
     width: 200, height: 200, videoId: SONG_ID,
     playerVars: { controls: 0, disablekb: 1, playsinline: 1, rel: 0, iv_load_policy: 3 },
-    events: { onStateChange: e => { if (e.data === 1 && starting) start() } }, // 1 = playing
   })
 }
 document.head.append(Object.assign(document.createElement('script'), { src: 'https://www.youtube.com/iframe_api' }))
@@ -74,7 +73,7 @@ function drawSprite(s, cx, feet, k) {
 }
 
 let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, message, messageT, messageDuration, confetti, grinchBox
-let clock = 0, dist = 0, speed = SPEED, starting = false
+let clock = 0, dist = 0, speed = SPEED
 const snow = Array.from({ length: 50 }, () => ({ x: rand(0, W), y: rand(0, H), r: rand(1, 3) }))
 
 function reset() {
@@ -94,23 +93,14 @@ function showScreen(h, p, n, b, clue) {
   screen.hidden = false
 }
 
-// the tap starts the song; the run begins once it is playing, or after a few seconds without it
-function ready() {
-  if (!player?.playVideo) return start()
-  starting = true
-  button.disabled = true
-  button.textContent = 'Starting the music...'
-  player.seekTo(0)
-  player.playVideo()
-  setTimeout(() => starting && start(), 5000)
-}
-
+// the run starts on the tap and never waits for the video; the song just plays along
 function start() {
-  starting = false
   reset()
   state = 'run'
   screen.hidden = true
   button.blur()
+  player?.seekTo?.(0)
+  player?.playVideo?.()
 }
 
 function win() {
@@ -162,7 +152,6 @@ function spawn() {
 
 function update(dt) {
   progress += dt
-  if (player?.getPlayerState?.() === 1) progress = player.getCurrentTime() // stay in step with the song
   speed = SPEED * (1 + SPEED_RAMP * Math.min(progress / RUN_SECONDS, 1))
   dist += speed * dt
   vy -= GRAVITY * dt
@@ -292,7 +281,7 @@ window.addEventListener('keydown', e => {
     jump()
   }
 })
-button.addEventListener('click', ready)
+button.addEventListener('click', start)
 
 reset()
 state = 'start'
