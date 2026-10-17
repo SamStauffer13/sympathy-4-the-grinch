@@ -3,7 +3,12 @@
 A tiny browser game for a Christmas scavenger hunt. The Grinch robs Santa and runs for Whoville; kids tap to jump over stuff.
 Win (about 45 seconds of running) and the clue appears. Live at https://samstauffer.net/sympathy-4-the-grinch/ , which is where the QR code points.
 
-No backend and no build step: `index.html` plus `game.js`.
+No backend and no build step: `index.html`, `game.js` and the sprites in `img/`.
+
+## Change the art
+Sprites are transparent PNGs in `img/characters/` (idle, jump, run-01, run-02 for `grinch` and `santa`) and `img/obstacles/`.
+`img/manifest.json` lists every sprite with its visible bounds `[x, y, width, height]` and the y of its feet; hitboxes come from it.
+Replace a PNG keeping its name and size. To add an obstacle, drop a PNG in `img/obstacles/` and add an entry to the manifest. The game picks obstacles at random from every non-character entry.
 
 ## Change the clue
 Edit the `CLUE` line at the top of `game.js`. Commit to `main`; the site redeploys in about a minute.

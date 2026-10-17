@@ -3,27 +3,53 @@ const CLUE = 'Replace this text with the real clue.' // shown when the player wi
 const W = 800, H = 450, GROUND = 370, SCALE = 2
 const RUN_SECONDS = 45 // seconds of running needed to win
 const PENALTY = 5 // seconds lost when the Grinch hits something
-const SPEED = 330, GRAVITY = 2400, JUMP = 880
-const GX = 140 // the Grinch's x position
-const OBSTACLES = ['🎄', '⛄', '🎁', '🍭']
+const SPEED = 280, GRAVITY = 1520, JUMP = 760
+const GX = 170 // the Grinch's centre x
+const CHAR_SCALE = 0.63 // character sprite px -> game px
+const OBSTACLE_MAX = [105, 80] // widest and tallest an obstacle's art is drawn
 
 const canvas = document.getElementById('game')
 const ctx = canvas.getContext('2d')
 canvas.width = W * SCALE
 canvas.height = H * SCALE
 ctx.scale(SCALE, SCALE)
+ctx.imageSmoothingQuality = 'high'
 
 const screen = document.getElementById('screen')
 const [title, text, note, button] = ['h1', 'p', 'small', 'button'].map(s => screen.querySelector(s))
 
 const rand = (a, b) => a + Math.random() * (b - a)
 
+// sprites come from img/manifest.json: contentBounds is [x, y, width, height] of the visible art
+const sprites = {}
+async function loadSprites() {
+  const { assets } = await (await fetch('img/manifest.json')).json()
+  await Promise.all(assets.map(async a => {
+    const img = new Image()
+    img.src = 'img/' + a.file
+    await img.decode()
+    const [bx, by, bw, bh] = a.contentBounds
+    sprites[a.id] = { img, bx, bw, bh, w: a.width, feetY: a.feetY }
+  }))
+}
+
+// hitbox relative to the sprite's centre, shrunk by inset on each side
+const box = (s, k, inset) => ({
+  l: (s.bx - s.w / 2 + inset * s.bw) * k,
+  r: (s.bx + s.bw * (1 - inset) - s.w / 2) * k,
+  h: s.bh * k * 0.9,
+})
+
+function drawSprite(s, cx, feet, k) {
+  ctx.drawImage(s.img, cx - (s.w / 2) * k, feet - s.feetY * k, s.img.width * k, s.img.height * k)
+}
+
 let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, message, messageT, confetti
 let clock = 0, dist = 0
 const snow = Array.from({ length: 50 }, () => ({ x: rand(0, W), y: rand(0, H), r: rand(1, 3) }))
 
 function reset() {
-  progress = 0; y = 0; vy = 0; obstacles = []; spawnIn = 600
+  progress = 0; y = 0; vy = 0; obstacles = []; spawnIn = 500
   lunge = 0; invuln = 0; shake = 0; messageT = 0; confetti = []
 }
 
@@ -45,7 +71,7 @@ function win() {
   confetti = Array.from({ length: 90 }, () => ({
     x: rand(0, W), y: rand(-H, 0), vx: rand(-60, 60), vy: rand(150, 350), c: colors[Math.floor(rand(0, colors.length))],
   }))
-  setTimeout(() => showScreen('You got away with it!', CLUE,'Show this to the grown-up', 'Rob Santa again'), 900)
+  setTimeout(() => showScreen('You got away with it!', CLUE, 'Show this to the grown-up', 'Rob Santa again'), 900)
 }
 
 function hit(o) {
@@ -59,6 +85,15 @@ function jump() {
   if (state === 'run' && y <= 0) vy = JUMP
 }
 
+const obstacleIds = () => Object.keys(sprites).filter(id => !/^(grinch|santa)-/.test(id))
+
+function spawn() {
+  const ids = obstacleIds()
+  const s = sprites[ids[Math.floor(rand(0, ids.length))]]
+  const k = Math.min(OBSTACLE_MAX[0] / s.bw, OBSTACLE_MAX[1] / s.bh)
+  obstacles.push({ x: W + 100, s, k, box: box(s, k, 0.15) })
+}
+
 function update(dt) {
   progress += dt
   dist += SPEED * dt
@@ -68,15 +103,16 @@ function update(dt) {
 
   spawnIn -= SPEED * dt
   if (spawnIn <= 0 && progress < RUN_SECONDS - 3) {
-    obstacles.push({ x: W + 40, e: OBSTACLES[Math.floor(rand(0, OBSTACLES.length))] })
-    spawnIn = rand(520, 840)
+    spawn()
+    spawnIn = rand(450, 720)
   }
   obstacles.forEach(o => { o.x -= SPEED * dt })
-  obstacles = obstacles.filter(o => o.x > -80)
+  obstacles = obstacles.filter(o => o.x > -150)
 
   invuln -= dt; messageT -= dt; shake = Math.max(0, shake - dt); lunge = Math.max(0, lunge - dt / 4)
   if (invuln <= 0) {
-    const o = obstacles.find(o => o.x + 10 < GX + 42 && o.x + 46 > GX + 8 && y < 44)
+    const g = box(sprites['grinch-run-01'], CHAR_SCALE, 0.2)
+    const o = obstacles.find(o => GX + g.r > o.x + o.box.l && GX + g.l < o.x + o.box.r && y < o.box.h)
     if (o) hit(o)
   }
   if (progress >= RUN_SECONDS) win()
@@ -109,25 +145,6 @@ function glitchText(s, x, yy, size) {
   ctx.fillStyle = '#ff2bd6'
   ctx.fillText(s, x, yy)
   ctx.textAlign = 'left'
-}
-
-function drawGrinch() {
-  if (invuln > 0 && Math.floor(invuln * 10) % 2) return
-  const b = GROUND - y
-  const swing = y > 0 ? 0 : Math.sin(clock * 18) * 10
-  emoji('🎁', GX - 26, b - 28, 36)
-  ctx.fillStyle = '#1f9d3a'
-  ctx.fillRect(GX + 10 + swing, b - 14, 8, 14)
-  ctx.fillRect(GX + 26 - swing, b - 14, 8, 14)
-  ctx.fillStyle = '#39ff14'
-  ctx.beginPath(); ctx.roundRect(GX, b - 62, 44, 52, 14); ctx.fill()
-  ctx.fillStyle = '#ffe600'
-  ctx.fillRect(GX + 24, b - 50, 8, 8)
-  ctx.fillRect(GX + 34, b - 50, 8, 8)
-  ctx.fillStyle = '#ff2d2d'
-  ctx.beginPath(); ctx.moveTo(GX + 2, b - 60); ctx.lineTo(GX + 22, b - 92); ctx.lineTo(GX + 42, b - 60); ctx.fill()
-  ctx.fillStyle = '#fff'
-  ctx.beginPath(); ctx.arc(GX + 22, b - 94, 5, 0, Math.PI * 2); ctx.fill()
 }
 
 function drawBar() {
@@ -164,13 +181,18 @@ function draw() {
     const houseX = GX + 60 + (RUN_SECONDS - progress) * SPEED
     if (houseX < W + 80) emoji('🏠', houseX, GROUND, 110)
   }
-  obstacles.forEach(o => emoji(o.e, o.x, GROUND + 4, 56))
+  obstacles.forEach(o => drawSprite(o.s, o.x, GROUND + 4, o.k))
 
-  const santaX = 10 + lunge * 70
-  emoji('🎅', santaX, GROUND - Math.abs(Math.sin(clock * 10)) * 12, 76)
-  if (lunge > 0.3) emoji('💢', santaX + 60, GROUND - 60, 36)
+  const running = state === 'run'
+  const step = `run-0${Math.floor(clock * 8) % 2 + 1}`
+  const santaX = 60 + lunge * 70
+  drawSprite(sprites[`santa-${running ? step : 'idle'}`], santaX, GROUND + 4, CHAR_SCALE)
+  if (lunge > 0.3) emoji('💢', santaX + 50, GROUND - 100, 36)
 
-  drawGrinch()
+  if (!(invuln > 0 && Math.floor(invuln * 10) % 2)) {
+    const pose = !running ? 'idle' : y > 0 ? 'jump' : step
+    drawSprite(sprites[`grinch-${pose}`], GX, GROUND + 4 - y, CHAR_SCALE)
+  }
   if (state !== 'start') drawBar()
   if (messageT > 0) glitchText(message, W / 2, 90, 36)
 
@@ -200,5 +222,10 @@ button.addEventListener('click', start)
 
 reset()
 state = 'start'
-showScreen('Sympathy 4 the Grinch', "Rob Santa. Don't get caught.\nTap to jump over stuff. Make it to Whoville with the loot!", '', "Let's go")
-requestAnimationFrame(frame)
+showScreen('Sympathy 4 the Grinch', "Rob Santa. Don't get caught.\nTap to jump over stuff. Make it to Whoville with the loot!", '', 'Loading...')
+button.disabled = true
+loadSprites().then(() => {
+  button.disabled = false
+  button.textContent = "Let's go"
+  requestAnimationFrame(frame)
+}).catch(() => { text.textContent = 'Could not load the game. Check your connection and refresh.' })
