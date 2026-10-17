@@ -7,6 +7,7 @@ const SPEED = 280, GRAVITY = 1520, JUMP = 760
 const GX = 170 // the Grinch's centre x
 const CHAR_SCALE = 0.63 // character sprite px -> game px
 const OBSTACLE_MAX = [105, 80] // widest and tallest an obstacle's art is drawn
+const HIT_MESSAGE = "Santa's gaining!"
 
 const canvas = document.getElementById('game')
 const ctx = canvas.getContext('2d')
@@ -31,6 +32,7 @@ async function loadSprites() {
     const [bx, by, bw, bh] = a.contentBounds
     sprites[a.id] = { img, bx, bw, bh, w: a.width, feetY: a.feetY }
   }))
+  grinchBox = box(sprites['grinch-run-01'], CHAR_SCALE, 0.2)
 }
 
 // hitbox relative to the sprite's centre, shrunk by inset on each side
@@ -44,7 +46,7 @@ function drawSprite(s, cx, feet, k) {
   ctx.drawImage(s.img, cx - (s.w / 2) * k, feet - s.feetY * k, s.img.width * k, s.img.height * k)
 }
 
-let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, message, messageT, confetti
+let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, messageT, confetti, grinchBox
 let clock = 0, dist = 0
 const snow = Array.from({ length: 50 }, () => ({ x: rand(0, W), y: rand(0, H), r: rand(1, 3) }))
 
@@ -78,7 +80,7 @@ function hit(o) {
   obstacles.splice(obstacles.indexOf(o), 1)
   progress = Math.max(0, progress - PENALTY)
   lunge = 1; invuln = 1; shake = 0.35
-  message = "Santa's gaining!"; messageT = 1.3
+  messageT = 1.3
 }
 
 function jump() {
@@ -111,8 +113,7 @@ function update(dt) {
 
   invuln -= dt; messageT -= dt; shake = Math.max(0, shake - dt); lunge = Math.max(0, lunge - dt / 4)
   if (invuln <= 0) {
-    const g = box(sprites['grinch-run-01'], CHAR_SCALE, 0.2)
-    const o = obstacles.find(o => GX + g.r > o.x + o.box.l && GX + g.l < o.x + o.box.r && y < o.box.h)
+    const o = obstacles.find(o => GX + grinchBox.r > o.x + o.box.l && GX + grinchBox.l < o.x + o.box.r && y < o.box.h)
     if (o) hit(o)
   }
   if (progress >= RUN_SECONDS) win()
@@ -194,7 +195,7 @@ function draw() {
     drawSprite(sprites[`grinch-${pose}`], GX, GROUND + 4 - y, CHAR_SCALE)
   }
   if (state !== 'start') drawBar()
-  if (messageT > 0) glitchText(message, W / 2, 90, 36)
+  if (messageT > 0) glitchText(HIT_MESSAGE, W / 2, 90, 36)
 
   confetti.forEach(c => { ctx.fillStyle = c.c; ctx.fillRect(c.x, c.y, 8, 12) })
   ctx.restore()
