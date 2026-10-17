@@ -7,6 +7,7 @@ const SPEED = 280, GRAVITY = 1520, JUMP = 760
 const GX = 170 // the Grinch's centre x
 const CHAR_SCALE = 0.63 // character sprite px -> game px
 const OBSTACLE_MAX = [105, 80] // widest and tallest an obstacle's art is drawn
+const FINISH_HEIGHT = 150 // drawn height of the finish-line art
 const HIT_MESSAGE = "Santa's gaining!"
 
 const canvas = document.getElementById('game')
@@ -23,7 +24,10 @@ const rand = (a, b) => a + Math.random() * (b - a)
 
 // sprites come from img/manifest.json: contentBounds is [x, y, width, height] of the visible art
 const sprites = {}
+const finish = new Image()
 async function loadSprites() {
+  finish.src = 'img/american-dream.png'
+  await finish.decode()
   const { assets } = await (await fetch('img/manifest.json')).json()
   await Promise.all(assets.map(async a => {
     const img = new Image()
@@ -157,7 +161,7 @@ function drawBar() {
   ctx.fillStyle = '#39ff14'
   ctx.beginPath(); ctx.arc(px(progress), 29, 11, 0, Math.PI * 2); ctx.fill()
   emoji('🎅', px(Math.max(0, progress - 8 + 6 * lunge)) - 12, 44, 26)
-  emoji('🏠', W - 56, 52, 32)
+  ctx.drawImage(finish, W - 54, 12, 28, 34)
 }
 
 function draw() {
@@ -179,8 +183,9 @@ function draw() {
   for (let x = -(dist % 80); x < W; x += 80) ctx.fillRect(x, GROUND + 30, 36, 3)
 
   if (state === 'run' || state === 'win') {
-    const houseX = GX + 60 + (RUN_SECONDS - progress) * SPEED
-    if (houseX < W + 80) emoji('🏠', houseX, GROUND, 110)
+    const finishX = GX + 60 + (RUN_SECONDS - progress) * SPEED
+    const finishW = finish.width * FINISH_HEIGHT / finish.height
+    if (finishX < W) ctx.drawImage(finish, finishX, GROUND + 4 - FINISH_HEIGHT, finishW, FINISH_HEIGHT)
   }
   obstacles.forEach(o => drawSprite(o.s, o.x, GROUND + 4, o.k))
 

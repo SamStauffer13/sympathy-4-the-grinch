@@ -8,6 +8,7 @@ No backend and no build step: `index.html`, `game.js` and the sprites in `img/`.
 ## Change the art
 Sprites are transparent PNGs in `img/characters/` (`grinch` has idle, jump, run-01 and run-02; `santa` has idle, run-01 and run-02) and `img/obstacles/`.
 `img/manifest.json` lists every sprite with its visible bounds `[x, y, width, height]` and the y of its feet; hitboxes come from it.
+The finish-line art (the American Dream) is `img/american-dream.png`; it also shows as the icon at the end of the progress bar.
 Replace a PNG keeping its name and size. To add an obstacle, drop a PNG in `img/obstacles/` and add an entry to the manifest. The game picks obstacles at random from every non-character entry.
 
 ## Change the clue
