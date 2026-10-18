@@ -1,6 +1,3 @@
-const CLUE_LABEL = 'Final Clue' // small tag above the clue
-const CLUE = 'Lauren did 9/11' // shown when the player wins
-
 const W = 800, H = 450, GROUND = 370, SCALE = 2
 const RUN_SECONDS = 132 // the length of the song, so the game ends when it does
 const SONG_ID = '8Lyvv_bhzD0' // YouTube video that plays during the run
@@ -42,6 +39,9 @@ muteButton.addEventListener('click', () => {
   muteButton.textContent = muted ? '🔇' : '🔊'
 })
 
+let wakeLock
+const keepAwake = async () => { try { wakeLock = await navigator.wakeLock?.request('screen') } catch {} }
+
 const rand = (a, b) => a + Math.random() * (b - a)
 
 // sprites come from img/manifest.json: contentBounds is [x, y, width, height] of the visible art
@@ -73,7 +73,7 @@ function drawSprite(s, cx, feet, k) {
 }
 
 let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, message, messageT, messageDuration, confetti, grinchBox
-let clock = 0, dist = 0, speed = SPEED
+let clock = 0, dist = 0, speed = SPEED, jumped = false
 const snow = Array.from({ length: 50 }, () => ({ x: rand(0, W), y: rand(0, H), r: rand(1, 3) }))
 
 function reset() {
@@ -101,11 +101,13 @@ function start() {
   button.blur()
   player?.seekTo?.(0)
   player?.playVideo?.()
+  keepAwake()
 }
 
 function win() {
   state = 'win'
   player?.pauseVideo?.()
+  wakeLock?.release?.()
   const colors = ['#ff2bd6', '#39ff14', '#00f0ff', '#ffe600', '#ff2d2d']
   confetti = Array.from({ length: 90 }, () => ({
     x: rand(0, W), y: rand(-H, 0), vx: rand(-60, 60), vy: rand(150, 350), c: colors[Math.floor(rand(0, colors.length))],
@@ -116,6 +118,7 @@ function win() {
 function hit(o) {
   obstacles.splice(obstacles.indexOf(o), 1)
   lunge = 1; invuln = 1; shake = 0.35
+  navigator.vibrate?.(80)
   say(HIT_MESSAGE, 1.3)
 }
 
@@ -138,7 +141,10 @@ function drawMessage() {
 }
 
 function jump() {
-  if (state === 'run' && y <= 0) vy = JUMP
+  if (state === 'run' && y <= 0) {
+    vy = JUMP
+    jumped = true
+  }
 }
 
 const obstacleIds = () => Object.keys(sprites).filter(id => !/^(grinch|santa)-/.test(id))
@@ -257,6 +263,10 @@ function draw() {
     drawSprite(sprites[`grinch-${pose}`], GX, GROUND + 4 - y, CHAR_SCALE)
   }
   if (state !== 'start') drawBar()
+  // until the first jump, tell the player what to do as the first obstacle closes in
+  if (state === 'run' && !jumped && obstacles.some(o => o.x > GX && o.x < GX + 420)) {
+    glitchText('TAP TO JUMP!', W * 0.4, 200, 44 + Math.sin(clock * 10) * 3)
+  }
   if (messageT > 0) drawMessage()
 
   confetti.forEach(c => { ctx.fillStyle = c.c; ctx.fillRect(c.x, c.y, 8, 12) })

@@ -12,7 +12,7 @@
     <meta property="og:url" content="https://samstauffer.net/sympathy-4-the-grinch/" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎁%3C/text%3E%3C/svg%3E" />
     <style>
-      html, body { margin: 0; height: 100%; background: #12001f; overflow: hidden; }
+      html, body { margin: 0; height: 100%; background: #12001f; overflow: hidden; overscroll-behavior: none; }
       body { display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Arial Black', Impact, sans-serif; }
       :root { --sw: min(100vw - 216px, 100vh * 16 / 9); } /* the game's long edge: the page minus the 200px music player */
       #frame { position: relative; width: var(--sw); height: calc(var(--sw) * 9 / 16); }
@@ -72,6 +72,7 @@
       <button id="mute" aria-label="Mute music">🔊</button>
     </div>
     <div id="music"></div>
+    <script src="clue.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

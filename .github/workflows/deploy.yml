@@ -22,6 +22,21 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Check the scripts and sprites
+        run: |
+          node --check game.js
+          node --check clue.js
+          node -e "
+            const fs = require('fs')
+            const { assets } = JSON.parse(fs.readFileSync('img/manifest.json', 'utf8'))
+            const fail = msg => { console.error(msg); process.exit(1) }
+            const missing = assets.filter(a => !fs.existsSync('img/' + a.file)).map(a => a.file)
+            if (missing.length) fail('manifest lists files that do not exist: ' + missing)
+            for (const id of ['grinch-idle', 'grinch-jump', 'grinch-run-01', 'grinch-run-02', 'santa-idle', 'santa-run-01', 'santa-run-02'])
+              if (!assets.some(a => a.id === id)) fail('manifest is missing ' + id)
+            if (!assets.some(a => a.name)) fail('manifest has no named obstacles')
+            if (!fs.existsSync('img/american-dream.png')) fail('img/american-dream.png is missing')
+          "
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .
