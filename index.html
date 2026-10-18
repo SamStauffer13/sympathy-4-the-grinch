@@ -73,6 +73,12 @@
         padding: 0.8vmin 2.4vmin; border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 999px; box-shadow: none;
         background: rgba(255, 255, 255, 0.08); color: #fff; font: bold clamp(12px, 2.2vw, 22px) Arial, sans-serif;
       }
+      /* held upright on a phone, the start screen asks for the phone to be turned (the game still works as it is) */
+      #turn { display: none; align-items: center; gap: 0.6em; font: bold clamp(14px, 2.6vw, 24px) Arial, sans-serif; color: #ffe600; }
+      #turn span { display: inline-block; font-size: 1.6em; animation: tilt 2.4s ease-in-out infinite; }
+      @media (orientation: portrait) and (pointer: coarse) { #turn:not([hidden]) { display: flex; } }
+      @keyframes tilt { 0%, 25% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+      @media (prefers-reduced-motion: reduce) { #turn span { animation: none; } }
       #clue {
         position: relative; margin: 2.5vmin 0 1vmin; padding: 3.5vmin 5vmin 2.8vmin; max-width: 85%; box-sizing: border-box;
         background: #12001f; border: max(3px, 0.5vmin) solid #39ff14; border-radius: 2vmin; box-shadow: max(4px, 1vmin) max(4px, 1vmin) #ff2bd6;
@@ -98,6 +104,7 @@
           <button id="sound" type="button">🔊 Sound on</button>
           <div id="clue" hidden><span></span><strong></strong></div>
           <small></small>
+          <div id="turn"><span>📱</span> Turn your phone sideways</div>
           <button id="go"></button>
         </div>
       </div>

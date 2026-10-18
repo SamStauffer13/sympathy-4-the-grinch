@@ -11,18 +11,22 @@ const OBSTACLE_MAX = [105, 80] // widest and tallest an obstacle's art is drawn
 const FINISH_HEIGHT = 150 // drawn height of the finish-line art
 const GRINCH_INSET = 0.2, OBSTACLE_INSET = 0.15 // share of a sprite's visible width that is not a hit, each side
 const HITBOX_HEIGHT = 0.9 // share of a sprite's visible height that is a hit
+const CELEBRATION = 3.5 // seconds the finish plays before the clue card shows
+const SKIP_AFTER = 1.5 // seconds before a tap skips ahead to the clue card
 const HIT_MESSAGE = "Santa's gaining!"
 const PINK = '#ff2bd6', GREEN = '#39ff14', CYAN = '#00f0ff', GOLD = '#ffd666'
+const PARTY = [PINK, GREEN, CYAN, '#ffe600', '#ff2d2d']
 const FONT = "'Arial Black', Impact, sans-serif"
 const calm = matchMedia('(prefers-reduced-motion: reduce)').matches // no screen shake or blinking
 
 // ---- page ----
 const canvas = document.getElementById('game')
 const ctx = canvas.getContext('2d')
-const screen = document.getElementById('screen')
-const [title, text, note, button] = ['h1', 'p', 'small', '#go'].map(s => screen.querySelector(s))
+const overlay = document.getElementById('screen') // the start and win screens
+const [title, text, note, button] = ['h1', 'p', 'small', '#go'].map(s => overlay.querySelector(s))
 const clueCard = document.getElementById('clue')
 const soundButton = document.getElementById('sound')
+const turnHint = document.getElementById('turn')
 
 const rand = (a, b) => a + Math.random() * (b - a)
 
@@ -100,31 +104,41 @@ function drawSprite(s, cx, feet, k) {
 }
 
 // ---- game state ----
-let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, message, messageT, messageDuration, confetti
-let clock = 0, dist = 0, speed = SPEED, unlockT = 0, jumped = false
+let state, progress, y, vy, obstacles, spawnIn, lunge, invuln, shake, message, messageT, messageDuration, particles, santaFall
+let clock = 0, dist = 0, speed = SPEED, unlockT = 0, nextBurst = 0, winTimer, jumped = false
 
 function reset() {
   progress = 0; y = 0; vy = 0; obstacles = []; spawnIn = 500; speed = SPEED
-  lunge = 0; invuln = 0; shake = 0; messageT = 0; confetti = []
+  lunge = 0; invuln = 0; shake = 0; messageT = 0; particles = []; santaFall = null
 }
 
 function showScreen(h, p, n, b, clue) {
   title.textContent = h; text.textContent = p; note.textContent = n; button.textContent = b
   button.disabled = false
   text.hidden = !p
-  soundButton.hidden = !!clue
+  soundButton.hidden = turnHint.hidden = !!clue
   clueCard.hidden = !clue
   if (clue) {
     clueCard.querySelector('span').textContent = CLUE_LABEL
     clueCard.querySelector('strong').textContent = clue
   }
-  screen.hidden = false
+  overlay.hidden = false
+}
+
+// on a phone, fill the screen and turn to landscape where the browser allows it (Android does; iPhones ignore this)
+async function goLandscape() {
+  if (!matchMedia('(pointer: coarse)').matches) return
+  try {
+    await document.documentElement.requestFullscreen?.()
+    await screen.orientation?.lock?.('landscape')
+  } catch {}
 }
 
 function start() {
+  goLandscape() // first, while the tap still counts as a user action
   reset()
   state = 'run'
-  screen.hidden = true
+  overlay.hidden = true
   button.blur()
   player?.seekTo?.(0)
   player?.playVideo?.()
@@ -136,21 +150,37 @@ function finishRect() {
   return { x: GX + 60 + (RUN_SECONDS - progress) * speed, w: finish.width * FINISH_HEIGHT / finish.height }
 }
 
+const showWin = () => {
+  clearTimeout(winTimer)
+  showScreen('You got away with it!', '', 'Show this to the grown-up', 'Rob Santa again', CLUE)
+}
+
+// a round of sparks flying out from a point and falling
+function burst(cx, cy, colors, count, speed) {
+  for (let i = 0; i < count; i++) {
+    const angle = rand(0, Math.PI * 2), v = rand(speed * 0.4, speed)
+    particles.push({ x: cx, y: cy, vx: Math.cos(angle) * v, vy: Math.sin(angle) * v - 40, g: 260, life: 1.2, w: 5, h: 5, c: colors[Math.floor(rand(0, colors.length))] })
+  }
+}
+
+// the finish: Santa wipes out, the globe unlocks, and the Grinch celebrates
 function win() {
   state = 'win'
+  invuln = 0
   player?.pauseVideo?.()
   wakeLock?.release?.()
-  const colors = [PINK, GREEN, CYAN, '#ffe600', '#ff2d2d']
-  confetti = Array.from({ length: 90 }, () => ({
-    x: rand(0, W), y: rand(-H, 0), vx: rand(-60, 60), vy: rand(150, 350), c: colors[Math.floor(rand(0, colors.length))],
+  screen.orientation?.unlock?.()
+  navigator.vibrate?.([80, 40, 80, 40, 240])
+  shake = calm ? 0 : 0.5
+  say('Santa wiped out!', 1.8)
+  santaFall = { x: 60 + lunge * 70, h: 0, vx: 30, vy: 700, rot: 0, bounced: false, restRot: null }
+  nextBurst = 0.5
+  particles = Array.from({ length: 90 }, () => ({
+    x: rand(0, W), y: rand(-H, 0), vx: rand(-60, 60), vy: rand(150, 350), c: PARTY[Math.floor(rand(0, PARTY.length))],
   }))
-  // the globe's lock opens in a burst of gold
-  const { x, w } = finishRect(), cx = x + w / 2, cy = GROUND - FINISH_HEIGHT / 2
-  for (let i = 0; i < 40; i++) {
-    const angle = rand(0, Math.PI * 2), v = rand(60, 220)
-    confetti.push({ x: cx, y: cy, vx: Math.cos(angle) * v, vy: Math.sin(angle) * v - 40, c: GOLD })
-  }
-  setTimeout(() => showScreen('You got away with it!', '', 'Show this to the grown-up', 'Rob Santa again', CLUE), 1800)
+  const { x, w } = finishRect()
+  burst(x + w / 2, GROUND - FINISH_HEIGHT / 2, [GOLD], 40, 220)
+  winTimer = setTimeout(showWin, CELEBRATION * 1000)
 }
 
 function hit(o) {
@@ -196,7 +226,7 @@ function update(dt) {
   obstacles.forEach(o => { o.x -= speed * dt })
   obstacles = obstacles.filter(o => o.x > -150)
 
-  invuln -= dt; messageT -= dt; shake = Math.max(0, shake - dt); lunge = Math.max(0, lunge - dt / 4)
+  invuln -= dt; lunge = Math.max(0, lunge - dt / 4)
   if (invuln <= 0) {
     const o = obstacles.find(o => GX + grinchBox.r > o.x + o.box.l && GX + grinchBox.l < o.x + o.box.r && y < o.box.h)
     if (o) hit(o)
@@ -210,17 +240,46 @@ function update(dt) {
   if (progress >= RUN_SECONDS) win()
 }
 
+// everything that keeps moving whatever the state: snow, popups, shake and the finish celebration
 function updateFx(dt) {
   const drift = state === 'run' ? speed * dt * 0.3 : 0
   snow.forEach(f => {
     f.y = (f.y + 40 * dt) % H
     f.x = (f.x - drift + W) % W
   })
-  confetti.forEach(c => {
+  messageT -= dt
+  shake = Math.max(0, shake - dt)
+
+  unlockT = state === 'win' ? unlockT + dt : 0
+  if (state === 'win' && !calm && unlockT > nextBurst && unlockT < 6) { // fireworks
+    nextBurst += 0.45
+    burst(rand(W * 0.3, W * 0.9), rand(60, 200), PARTY, 28, 200)
+  }
+  particles.forEach(c => {
+    c.vy += (c.g ?? 0) * dt
     c.x += c.vx * dt
     c.y += c.vy * dt
+    if (c.life !== undefined) c.life -= dt
   })
-  unlockT = state === 'win' ? unlockT + dt : 0
+  particles = particles.filter(c => c.life === undefined || c.life > 0)
+
+  if (santaFall) { // Santa tumbles, bounces once and ends up flat on his back
+    const s = santaFall
+    s.vy -= 1800 * dt
+    s.h += s.vy * dt
+    s.x += s.vx * dt
+    if (s.restRot === null) s.rot -= 7 * dt
+    else s.rot += (s.restRot - s.rot) * Math.min(1, dt * 8)
+    if (s.h < 0) {
+      s.h = 0
+      if (!s.bounced) s.vy = 320
+      else {
+        s.vy = s.vx = 0
+        s.restRot ??= Math.round((s.rot + Math.PI / 2) / (2 * Math.PI)) * 2 * Math.PI - Math.PI / 2 // nearest "lying down"
+      }
+      s.bounced = true
+    }
+  }
 }
 
 // ---- drawing ----
@@ -268,13 +327,40 @@ function drawBar() {
   ctx.drawImage(finish, W - 54, 12, 28, 34)
 }
 
+// a sprite turned about the middle of its visible art, for tumbles and flips
+function drawSpun(s, cx, feet, k, rotation) {
+  const half = (s.bh * k) / 2
+  ctx.save()
+  ctx.translate(cx, feet - half)
+  ctx.rotate(rotation)
+  drawSprite(s, 0, half, k)
+  ctx.restore()
+}
+
+function drawRays(cx, cy) {
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  ctx.globalAlpha = Math.min(unlockT / 0.5, 1) * 0.2
+  ctx.fillStyle = GOLD
+  ctx.translate(cx, cy)
+  ctx.rotate(unlockT * 0.5)
+  for (let i = 0; i < 12; i++) {
+    ctx.rotate(Math.PI / 6)
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-18, -260); ctx.lineTo(18, -260); ctx.fill()
+  }
+  ctx.restore()
+}
+
 function drawFinish() {
   const { x, w } = finishRect()
   if (x >= W) return
-  ctx.drawImage(finish, x, GROUND + 4 - FINISH_HEIGHT, w, FINISH_HEIGHT)
-  if (state !== 'win') return
-  // unlocked: the globe lights up and the news pops above it
+  const winning = state === 'win'
   const cx = x + w / 2, cy = GROUND - FINISH_HEIGHT / 2
+  if (winning) drawRays(cx, cy)
+  ctx.drawImage(finish, x, GROUND + 4 - FINISH_HEIGHT, w, FINISH_HEIGHT)
+  if (!winning) return
+
+  // unlocked: the globe lights up, a ring rushes out of it and the news pops above it
   const glow = ctx.createRadialGradient(cx, cy, 8, cx, cy, 120)
   glow.addColorStop(0, 'rgba(255, 214, 102, 0.9)')
   glow.addColorStop(1, 'rgba(255, 214, 102, 0)')
@@ -284,7 +370,14 @@ function drawFinish() {
   ctx.fillStyle = glow
   ctx.fillRect(cx - 120, cy - 120, 240, 240)
   ctx.restore()
-  if (unlockT < 3) glitchText('UNLOCKED!', cx, GROUND - FINISH_HEIGHT - 24, 30 + Math.sin(clock * 10) * 2)
+  const ring = Math.min(unlockT / 0.7, 1)
+  ctx.save()
+  ctx.globalAlpha = 1 - ring
+  ctx.strokeStyle = GOLD
+  ctx.lineWidth = 6
+  ctx.beginPath(); ctx.arc(cx, cy, 20 + 160 * ring, 0, Math.PI * 2); ctx.stroke()
+  ctx.restore()
+  if (unlockT < CELEBRATION - 0.1) glitchText('UNLOCKED!', cx, GROUND - FINISH_HEIGHT - 24, 30 + Math.sin(clock * 10) * 2)
 }
 
 function draw() {
@@ -308,17 +401,30 @@ function draw() {
   if (state !== 'start') drawFinish()
   obstacles.forEach(o => drawSprite(o.s, o.x, GROUND + 4, o.k))
 
-  const running = state === 'run'
+  const running = state === 'run', winning = state === 'win'
   const step = `run-0${Math.floor(clock * 8) % 2 + 1}`
-  const santaX = 60 + lunge * 70
-  drawSprite(sprites[`santa-${running ? step : 'idle'}`], santaX, GROUND + 4, CHAR_SCALE)
-  if (lunge > 0.3) emoji('💢', santaX + 50, GROUND - 100, 36)
+  if (winning && santaFall) {
+    drawSpun(sprites['santa-run-01'], santaFall.x, GROUND + 4 - santaFall.h, CHAR_SCALE, santaFall.rot)
+    if (santaFall.restRot !== null) { // dizzy stars circle his head
+      for (let i = 0; i < 3; i++) {
+        const a = clock * 5 + i * 2.09
+        emoji('⭐', santaFall.x + Math.cos(a) * 36 - 10, GROUND - 58 + Math.sin(a) * 10, 20)
+      }
+    }
+  } else {
+    const santaX = 60 + lunge * 70
+    drawSprite(sprites[`santa-${running ? step : 'idle'}`], santaX, GROUND + 4, CHAR_SCALE)
+    if (lunge > 0.3) emoji('💢', santaX + 50, GROUND - 100, 36)
+  }
 
   // after a hit the Grinch blinks three times a second (or just fades, with reduced motion)
   if (!(invuln > 0 && !calm && Math.floor(invuln * 6) % 2)) {
-    const pose = !running ? 'idle' : y > 0 ? 'jump' : step
+    // at the finish he hops for joy and does a flip on the way up
+    const hop = winning ? Math.abs(Math.sin(unlockT * 5)) * 80 : y
+    const flip = winning && !calm && unlockT > 0.3 && unlockT < 1 ? ((unlockT - 0.3) / 0.7) * Math.PI * 2 : 0
+    const pose = running ? (y > 0 ? 'jump' : step) : winning && hop > 4 ? 'jump' : 'idle'
     ctx.globalAlpha = invuln > 0 && calm ? 0.5 : 1
-    drawSprite(sprites[`grinch-${pose}`], GX, GROUND + 4 - y, CHAR_SCALE)
+    drawSpun(sprites[`grinch-${pose}`], GX, GROUND + 4 - hop, CHAR_SCALE, flip)
     ctx.globalAlpha = 1
   }
   if (state !== 'start') drawBar()
@@ -328,7 +434,16 @@ function draw() {
   }
   if (messageT > 0) drawMessage()
 
-  confetti.forEach(c => { ctx.fillStyle = c.c; ctx.fillRect(c.x, c.y, 8, 12) })
+  particles.forEach(c => {
+    ctx.globalAlpha = c.life === undefined ? 1 : Math.min(1, c.life)
+    ctx.fillStyle = c.c
+    ctx.fillRect(c.x, c.y, c.w ?? 8, c.h ?? 12)
+  })
+  ctx.globalAlpha = 1
+  if (winning && !calm && unlockT < 0.25) { // a camera flash as the lock opens
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.7 * (1 - unlockT / 0.25)})`
+    ctx.fillRect(-20, -20, W + 40, H + 40)
+  }
   ctx.restore()
 }
 
@@ -344,7 +459,7 @@ function frame(t) {
   requestAnimationFrame(frame)
 }
 
-canvas.addEventListener('pointerdown', jump)
+canvas.addEventListener('pointerdown', () => state === 'win' && unlockT > SKIP_AFTER ? showWin() : jump())
 addEventListener('keydown', e => {
   if (state === 'run' && (e.code === 'Space' || e.code === 'ArrowUp')) {
     e.preventDefault()
