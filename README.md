@@ -16,7 +16,7 @@ Edit `clue.js`: the `CLUE` line is the text players win, and `CLUE_LABEL` is the
 
 ## Music
 The run plays the official "sympathy 4 the grinch" video through YouTube's embedded player (`SONG_ID` at the top of `game.js`).
-The "Let's go" tap starts the run and the song at the same moment, and there is a mute button bottom left.
+The "Let's go" tap starts the run and the song at the same moment. The "Sound on" pill on the start screen turns the music off and on; there is no control during the run, so use the phone's volume buttons.
 The video never affects the game: the run uses its own clock and never waits for, or follows, the video. If the video is slow, stalls, shows an ad or fails to load, the game carries on and ends on time; the song is paused when the run ends. YouTube does not allow its player to be hidden or shrunk below 200x200, so it sits below the game in the page: the game fills the whole screen, and the player is off screen until you scroll down. Do not move it off-screen with CSS or make it smaller; YouTube can then refuse to play the video.
 `RUN_SECONDS` is 132, the song's length, so winning means surviving the whole song. A slow start or a YouTube ad can leave the song a little behind the game. The player streams video, which uses mobile data.
 

@@ -19,10 +19,10 @@ ctx.scale(SCALE, SCALE)
 ctx.imageSmoothingQuality = 'high'
 
 const screen = document.getElementById('screen')
-const [title, text, note, button] = ['h1', 'p', 'small', 'button'].map(s => screen.querySelector(s))
+const [title, text, note, button] = ['h1', 'p', 'small', '#go'].map(s => screen.querySelector(s))
 
 const clueCard = document.getElementById('clue')
-const howTo = document.getElementById('how')
+const soundButton = document.getElementById('sound')
 
 // the game runs on its own clock, so it still works with the music muted, blocked or slow to load
 let player
@@ -30,16 +30,17 @@ window.onYouTubeIframeAPIReady = () => {
   player = new YT.Player('music', {
     width: 200, height: 200, videoId: SONG_ID,
     playerVars: { controls: 0, disablekb: 1, playsinline: 1, rel: 0, iv_load_policy: 3 },
+    events: { onReady: applySound }, // a choice made while the player was still loading
   })
 }
 document.head.append(Object.assign(document.createElement('script'), { src: 'https://www.youtube.com/iframe_api' }))
 
-const muteButton = document.getElementById('mute')
 let muted = false
-muteButton.addEventListener('click', () => {
+const applySound = () => muted ? player?.mute?.() : player?.unMute?.()
+soundButton.addEventListener('click', () => {
   muted = !muted
-  muted ? player?.mute?.() : player?.unMute?.()
-  muteButton.textContent = muted ? '🔇' : '🔊'
+  applySound()
+  soundButton.textContent = muted ? '🔇 Sound off' : '🔊 Sound on'
 })
 
 let wakeLock
@@ -96,7 +97,7 @@ function showScreen(h, p, n, b, clue) {
   title.textContent = h; text.textContent = p; note.textContent = n; button.textContent = b
   button.disabled = false
   text.hidden = !p
-  howTo.hidden = !!clue
+  soundButton.hidden = !!clue
   clueCard.hidden = !clue
   if (clue) {
     clueCard.querySelector('span').textContent = CLUE_LABEL
