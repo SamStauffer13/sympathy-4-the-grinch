@@ -34,7 +34,7 @@ YouTube does not allow its player to be hidden or shrunk below 200x200, so it si
 - The screen stays awake during a run, and pull-to-refresh is disabled so a swipe cannot reload the page.
 
 ## Phones
-The game is meant to be played sideways. Opened upright, the start screen shows an animated "Turn your phone sideways" prompt, and the game itself is turned on its side so it still works if the phone's rotation is locked. On Android, tapping "Let's go" also goes full screen and locks to landscape (released at the finish); iPhones do not allow that, so they rely on the prompt.
+The game is meant to be played sideways, and a web page cannot force that. So the whole game, start and win screens included, is always laid out horizontally: held upright, it is turned on its side to fill the screen, and a pulsing "Turn your phone sideways!" banner in upright writing shows on the start screen until the phone is turned. This also works if the phone's rotation is locked. On Android, tapping "Let's go" also goes full screen and locks to landscape (released at the finish); iPhones do not allow that, so they rely on the prompt.
 
 ## Screens
 The game is 450 tall and as wide as the screen's shape allows (up to 2.2:1), so a wide phone has no side margins and notches are left alone. Held sideways it fills the screen edge to edge; held upright it is turned on its side to fill the screen (turn the phone to read it), and the start and win screens stay upright.

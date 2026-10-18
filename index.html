@@ -18,12 +18,16 @@
       body { font-family: 'Arial Black', Impact, sans-serif; }
 
       /* sizes: the game's long edge (--sw) is as big as the screen allows, keeping the game's shape (--aspect, set by
-         game.js to suit the screen). Phone notches (the safe area) are left alone; dvh ignores the address bar. */
+         game.js to suit the screen). Phone notches (the safe area) are left alone; dvh ignores the address bar.
+         --u and --m are 1% of the game's width and height: the start and win screens size themselves from those,
+         so they look the same whichever way the phone is held. */
       :root {
         --vh: 1vh; --aspect: 1.7778;
         --safe-x: calc(env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
         --safe-y: calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
         --sw: min(100vw - var(--safe-x), (100 * var(--vh) - var(--safe-y)) * var(--aspect));
+        --u: calc(var(--sw) / 100);
+        --m: calc(var(--sw) / var(--aspect) / 100);
       }
       @supports (height: 100dvh) { :root { --vh: 1dvh; } }
       #play { height: calc(100 * var(--vh)); display: flex; align-items: center; justify-content: center; }
@@ -34,7 +38,8 @@
       #stage { position: absolute; inset: 0; }
       canvas { width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
 
-      /* held upright, the game is turned on its side so it is just as big; the text screens stay upright */
+      /* held upright, the whole game (start and win screens too) is turned on its side so it is always laid out
+         horizontally; a pulsing banner in upright writing asks for the phone to be turned */
       @media (orientation: portrait) {
         :root { --sw: min(100 * var(--vh) - var(--safe-y), (100vw - var(--safe-x)) * var(--aspect)); }
         #frame { width: calc(var(--sw) / var(--aspect)); height: var(--sw); }
@@ -44,6 +49,16 @@
       @media (max-height: 500px) and (orientation: landscape), (max-width: 500px) and (orientation: portrait) {
         #frame { border-radius: 0; box-shadow: none; }
       }
+      #rotate {
+        display: none; position: absolute; left: 50%; bottom: 5%; transform: translateX(-50%); align-items: center; gap: 0.5em;
+        padding: 0.5em 1em; border: 3px solid #ffe600; border-radius: 999px; background: rgba(18, 0, 31, 0.9); color: #ffe600;
+        font: bold 18px Arial, sans-serif; white-space: nowrap; animation: flash 1.4s ease-in-out infinite;
+      }
+      #rotate span { display: inline-block; font-size: 1.5em; animation: tilt 2.4s ease-in-out infinite; }
+      @media (orientation: portrait) and (pointer: coarse) { #rotate:not([hidden]) { display: flex; } }
+      @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+      @keyframes tilt { 0%, 25% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+      @media (prefers-reduced-motion: reduce) { #rotate, #rotate span { animation: none; } }
 
       /* YouTube does not allow its player to be hidden or made smaller than 200x200, so it sits below the game:
          nothing covers it and it is a normal part of the page, but it is off screen until you scroll down */
@@ -58,55 +73,52 @@
       /* start and win screens */
       #screen {
         position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: 2.2vmin; padding: 4vmin; box-sizing: border-box; text-align: center; color: #fff;
+        gap: calc(2.2 * var(--m)); padding: calc(4 * var(--m)); box-sizing: border-box; text-align: center; color: #fff;
         background: radial-gradient(ellipse at 50% 50%, rgba(18, 0, 31, 0.93) 0%, rgba(18, 0, 31, 0.6) 100%);
       }
       #screen[hidden] { display: none; }
-      h1 { margin: 0; font-size: clamp(24px, 6vw, 64px); color: #ff2bd6; text-shadow: 0.05em 0.05em #00f0ff; }
-      p { margin: 0; max-width: 28em; white-space: pre-wrap; font-family: Arial, sans-serif; font-weight: bold; font-size: clamp(16px, 3vw, 30px); }
-      small { font-family: Arial, sans-serif; font-size: clamp(12px, 2vw, 20px); color: #39ff14; }
+      h1 { margin: 0; font-size: clamp(24px, calc(6 * var(--u)), 64px); color: #ff2bd6; text-shadow: 0.05em 0.05em #00f0ff; }
+      p { margin: 0; max-width: 28em; white-space: pre-wrap; font-family: Arial, sans-serif; font-weight: bold; font-size: clamp(16px, calc(3 * var(--u)), 30px); }
+      small { font-family: Arial, sans-serif; font-size: clamp(12px, calc(2 * var(--u)), 20px); color: #39ff14; }
       button {
-        font: inherit; font-size: clamp(18px, 3.5vw, 36px); padding: 0.4em 1.2em; border: 0; border-radius: 999px;
+        font: inherit; font-size: clamp(18px, calc(3.5 * var(--u)), 36px); padding: 0.4em 1.2em; border: 0; border-radius: 999px;
         background: #39ff14; color: #12001f; cursor: pointer; box-shadow: 0.1em 0.1em #ff2bd6;
       }
       #sound {
-        padding: 0.8vmin 2.4vmin; border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 999px; box-shadow: none;
-        background: rgba(255, 255, 255, 0.08); color: #fff; font: bold clamp(12px, 2.2vw, 22px) Arial, sans-serif;
+        padding: calc(0.8 * var(--m)) calc(2.4 * var(--m)); border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 999px; box-shadow: none;
+        background: rgba(255, 255, 255, 0.08); color: #fff; font: bold clamp(12px, calc(2.2 * var(--u)), 22px) Arial, sans-serif;
       }
-      /* held upright on a phone, the start screen asks for the phone to be turned (the game still works as it is) */
-      #turn { display: none; align-items: center; gap: 0.6em; font: bold clamp(14px, 2.6vw, 24px) Arial, sans-serif; color: #ffe600; }
-      #turn span { display: inline-block; font-size: 1.6em; animation: tilt 2.4s ease-in-out infinite; }
-      @media (orientation: portrait) and (pointer: coarse) { #turn:not([hidden]) { display: flex; } }
-      @keyframes tilt { 0%, 25% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
-      @media (prefers-reduced-motion: reduce) { #turn span { animation: none; } }
       #clue {
-        position: relative; margin: 2.5vmin 0 1vmin; padding: 3.5vmin 5vmin 2.8vmin; max-width: 85%; box-sizing: border-box;
-        background: #12001f; border: max(3px, 0.5vmin) solid #39ff14; border-radius: 2vmin; box-shadow: max(4px, 1vmin) max(4px, 1vmin) #ff2bd6;
+        position: relative; margin: calc(2.5 * var(--m)) 0 var(--m); padding: calc(3.5 * var(--m)) calc(5 * var(--m)) calc(2.8 * var(--m));
+        max-width: 85%; box-sizing: border-box; background: #12001f; border: max(3px, calc(0.5 * var(--m))) solid #39ff14;
+        border-radius: calc(2 * var(--m)); box-shadow: max(4px, var(--m)) max(4px, var(--m)) #ff2bd6;
         animation: pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
       }
       #clue[hidden] { display: none; }
       #clue span {
         position: absolute; top: 0; left: 50%; transform: translate(-50%, -55%); white-space: nowrap;
-        padding: 0.5vmin 2.5vmin; border-radius: 999px; background: #ff2bd6; color: #fff;
-        font-size: clamp(12px, 2.4vw, 24px); letter-spacing: 0.15em; text-transform: uppercase;
+        padding: calc(0.5 * var(--m)) calc(2.5 * var(--m)); border-radius: 999px; background: #ff2bd6; color: #fff;
+        font-size: clamp(12px, calc(2.4 * var(--u)), 24px); letter-spacing: 0.15em; text-transform: uppercase;
       }
-      #clue strong { font-size: clamp(26px, 6.5vw, 70px); line-height: 1.1; text-shadow: 0.05em 0.05em #00f0ff; }
+      #clue strong { font-size: clamp(26px, calc(6.5 * var(--u)), 70px); line-height: 1.1; text-shadow: 0.05em 0.05em #00f0ff; }
       @keyframes pop { from { transform: scale(0.4) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
     </style>
   </head>
   <body>
     <main id="play">
       <div id="frame">
-        <div id="stage"><canvas id="game"></canvas></div>
-        <div id="screen">
-          <h1></h1>
-          <p></p>
-          <button id="sound" type="button">🔊 Sound on</button>
-          <div id="clue" hidden><span></span><strong></strong></div>
-          <small></small>
-          <div id="turn"><span>📱</span> Turn your phone sideways</div>
-          <button id="go"></button>
+        <div id="stage">
+          <canvas id="game"></canvas>
+          <div id="screen">
+            <h1></h1>
+            <p></p>
+            <button id="sound" type="button">🔊 Sound on</button>
+            <div id="clue" hidden><span></span><strong></strong></div>
+            <small></small>
+            <button id="go"></button>
+          </div>
         </div>
+        <div id="rotate"><span>📱</span> Turn your phone sideways!</div>
       </div>
     </main>
     <footer id="now-playing">

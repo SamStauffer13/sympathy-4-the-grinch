@@ -26,7 +26,7 @@ const overlay = document.getElementById('screen') // the start and win screens
 const [title, text, note, button] = ['h1', 'p', 'small', '#go'].map(s => overlay.querySelector(s))
 const clueCard = document.getElementById('clue')
 const soundButton = document.getElementById('sound')
-const turnHint = document.getElementById('turn')
+const rotateBanner = document.getElementById('rotate') // asks for the phone to be turned; shown on the start screen only
 
 const rand = (a, b) => a + Math.random() * (b - a)
 
@@ -116,7 +116,7 @@ function showScreen(h, p, n, b, clue) {
   title.textContent = h; text.textContent = p; note.textContent = n; button.textContent = b
   button.disabled = false
   text.hidden = !p
-  soundButton.hidden = turnHint.hidden = !!clue
+  soundButton.hidden = rotateBanner.hidden = !!clue
   clueCard.hidden = !clue
   if (clue) {
     clueCard.querySelector('span').textContent = CLUE_LABEL
@@ -138,7 +138,7 @@ function start() {
   goLandscape() // first, while the tap still counts as a user action
   reset()
   state = 'run'
-  overlay.hidden = true
+  overlay.hidden = rotateBanner.hidden = true
   button.blur()
   player?.seekTo?.(0)
   player?.playVideo?.()
