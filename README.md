@@ -24,6 +24,7 @@ The video never affects the game: the run uses its own clock and never waits for
 Constants at the top of `game.js`: `RUN_SECONDS` (length of the run; keep it equal to the song), `SPEED` and `SPEED_RAMP` (the run gets 20% faster by the end), `CHAR_SCALE`.
 The game is the same size in either orientation: held upright, it is turned on its side to fill the screen (turn the phone to read it), and the start and win screens stay upright.
 Hitting something never ends the game; it makes Santa lunge and the Grinch stumble (and buzzes the phone), so every kid wins at the end of the song.
+The same obstacle never appears twice in a row. A broken obstacle image is skipped rather than stopping the game (the characters are required). With the phone's reduced-motion setting on, there is no screen shake and the Grinch fades instead of blinking; the song pauses while the page is in the background.
 Until a player's first jump, a "TAP TO JUMP!" prompt shows as the first obstacle approaches. The screen stays awake during a run, and pull-to-refresh is disabled so a swipe cannot reload the page mid-game.
 
 ## Preview locally

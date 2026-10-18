@@ -8,6 +8,8 @@ const CHAR_SCALE = 0.63 // character sprite px -> game px
 const OBSTACLE_MAX = [105, 80] // widest and tallest an obstacle's art is drawn
 const FINISH_HEIGHT = 150 // drawn height of the finish-line art
 const HIT_MESSAGE = "Santa's gaining!"
+const PINK = '#ff2bd6', GREEN = '#39ff14', CYAN = '#00f0ff'
+const calm = matchMedia('(prefers-reduced-motion: reduce)').matches // no screen shake or blinking
 
 const canvas = document.getElementById('game')
 const ctx = canvas.getContext('2d')
@@ -47,17 +49,25 @@ const rand = (a, b) => a + Math.random() * (b - a)
 // sprites come from img/manifest.json: contentBounds is [x, y, width, height] of the visible art
 const sprites = {}
 const finish = new Image()
+let obstacleIds = [], lastObstacle
+const isCharacter = id => /^(grinch|santa)-/.test(id)
 async function loadSprites() {
   finish.src = 'img/american-dream.png'
   await finish.decode()
   const { assets } = await (await fetch('img/manifest.json')).json()
   await Promise.all(assets.map(async a => {
-    const img = new Image()
-    img.src = 'img/' + a.file
-    await img.decode()
-    const [bx, by, bw, bh] = a.contentBounds
-    sprites[a.id] = { img, name: a.name, bx, bw, bh, w: a.width, feetY: a.feetY }
+    try {
+      const img = new Image()
+      img.src = 'img/' + a.file
+      await img.decode()
+      const [bx, , bw, bh] = a.contentBounds
+      sprites[a.id] = { img, name: a.name, bx, bw, bh, w: a.width, feetY: a.feetY }
+    } catch (e) {
+      if (isCharacter(a.id)) throw e // the characters are required; a broken obstacle is just skipped
+    }
   }))
+  obstacleIds = Object.keys(sprites).filter(id => !isCharacter(id))
+  if (!obstacleIds.length) throw new Error('no obstacles loaded')
   grinchBox = box(sprites['grinch-run-01'], CHAR_SCALE, 0.2)
 }
 
@@ -108,7 +118,7 @@ function win() {
   state = 'win'
   player?.pauseVideo?.()
   wakeLock?.release?.()
-  const colors = ['#ff2bd6', '#39ff14', '#00f0ff', '#ffe600', '#ff2d2d']
+  const colors = [PINK, GREEN, CYAN, '#ffe600', '#ff2d2d']
   confetti = Array.from({ length: 90 }, () => ({
     x: rand(0, W), y: rand(-H, 0), vx: rand(-60, 60), vy: rand(150, 350), c: colors[Math.floor(rand(0, colors.length))],
   }))
@@ -117,7 +127,7 @@ function win() {
 
 function hit(o) {
   obstacles.splice(obstacles.indexOf(o), 1)
-  lunge = 1; invuln = 1; shake = 0.35
+  lunge = 1; invuln = 1; shake = calm ? 0 : 0.35
   navigator.vibrate?.(80)
   say(HIT_MESSAGE, 1.3)
 }
@@ -147,11 +157,10 @@ function jump() {
   }
 }
 
-const obstacleIds = () => Object.keys(sprites).filter(id => !/^(grinch|santa)-/.test(id))
-
 function spawn() {
-  const ids = obstacleIds()
-  const s = sprites[ids[Math.floor(rand(0, ids.length))]]
+  const ids = obstacleIds.filter(id => id !== lastObstacle) // never the same obstacle twice in a row
+  lastObstacle = ids[Math.floor(rand(0, ids.length))] ?? lastObstacle
+  const s = sprites[lastObstacle]
   const k = Math.min(OBSTACLE_MAX[0] / s.bw, OBSTACLE_MAX[1] / s.bh)
   obstacles.push({ x: W + 100, s, k, box: box(s, k, 0.15) })
 }
@@ -208,9 +217,9 @@ function glitchText(s, x, yy, size) {
   ctx.font = `${size}px 'Arial Black', Impact, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillStyle = '#00f0ff'
+  ctx.fillStyle = CYAN
   ctx.fillText(s, x + 3, yy + 3)
-  ctx.fillStyle = '#ff2bd6'
+  ctx.fillStyle = PINK
   ctx.fillText(s, x, yy)
   ctx.textAlign = 'left'
 }
@@ -219,9 +228,9 @@ function drawBar() {
   const px = p => 40 + (W - 80) * Math.min(p / RUN_SECONDS, 1)
   ctx.fillStyle = 'rgba(255,255,255,0.2)'
   ctx.beginPath(); ctx.roundRect(40, 22, W - 80, 14, 7); ctx.fill()
-  ctx.fillStyle = '#ff2bd6'
+  ctx.fillStyle = PINK
   ctx.beginPath(); ctx.roundRect(40, 22, px(progress) - 40 + 1, 14, 7); ctx.fill()
-  ctx.fillStyle = '#39ff14'
+  ctx.fillStyle = GREEN
   ctx.beginPath(); ctx.arc(px(progress), 29, 11, 0, Math.PI * 2); ctx.fill()
   emoji('🎅', px(Math.max(0, progress - 8 + 6 * lunge)) - 12, 44, 26)
   ctx.drawImage(finish, W - 54, 12, 28, 34)
@@ -241,7 +250,7 @@ function draw() {
 
   ctx.fillStyle = '#1b0a2e'
   ctx.fillRect(-20, GROUND, W + 40, H - GROUND + 20)
-  ctx.fillStyle = '#39ff14'
+  ctx.fillStyle = GREEN
   ctx.fillRect(-20, GROUND, W + 40, 4)
   for (let x = -(dist % 80); x < W; x += 80) ctx.fillRect(x, GROUND + 30, 36, 3)
 
@@ -258,9 +267,12 @@ function draw() {
   drawSprite(sprites[`santa-${running ? step : 'idle'}`], santaX, GROUND + 4, CHAR_SCALE)
   if (lunge > 0.3) emoji('💢', santaX + 50, GROUND - 100, 36)
 
-  if (!(invuln > 0 && Math.floor(invuln * 10) % 2)) {
+  // after a hit the Grinch blinks three times a second (or just fades, with reduced motion)
+  if (!(invuln > 0 && !calm && Math.floor(invuln * 6) % 2)) {
     const pose = !running ? 'idle' : y > 0 ? 'jump' : step
+    ctx.globalAlpha = invuln > 0 && calm ? 0.5 : 1
     drawSprite(sprites[`grinch-${pose}`], GX, GROUND + 4 - y, CHAR_SCALE)
+    ctx.globalAlpha = 1
   }
   if (state !== 'start') drawBar()
   // until the first jump, tell the player what to do as the first obstacle closes in
@@ -292,6 +304,16 @@ window.addEventListener('keydown', e => {
   }
 })
 button.addEventListener('click', start)
+
+// the game stops drawing while the page is hidden, so the song waits with it
+document.addEventListener('visibilitychange', () => {
+  if (state !== 'run') return
+  if (document.hidden) player?.pauseVideo?.()
+  else {
+    player?.playVideo?.()
+    keepAwake()
+  }
+})
 
 reset()
 state = 'start'
