@@ -2,29 +2,49 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Sympathy 4 the Grinch</title>
-    <meta name="description" content="Rob Santa. Don't get caught. A tiny Christmas scavenger-hunt game." />
+    <meta name="description" content="Rob Santa. Tap to Jump. Don't get caught. A tiny Christmas scavenger-hunt game." />
     <meta name="theme-color" content="#12001f" />
     <meta property="og:title" content="Sympathy 4 the Grinch" />
-    <meta property="og:description" content="Rob Santa. Don't get caught. A tiny Christmas scavenger-hunt game." />
+    <meta property="og:description" content="Rob Santa. Tap to Jump. Don't get caught. A tiny Christmas scavenger-hunt game." />
     <meta property="og:image" content="https://samstauffer.net/sympathy-4-the-grinch/img/american-dream.png" />
     <meta property="og:url" content="https://samstauffer.net/sympathy-4-the-grinch/" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎁%3C/text%3E%3C/svg%3E" />
     <style>
+      /* page */
       html, body { margin: 0; overscroll-behavior: none; scrollbar-color: #5a0a6e #12001f; }
       html { background: #12001f radial-gradient(ellipse at 50% 0%, #2d0b45 0%, #12001f 65%) fixed; min-height: 100%; }
       body { font-family: 'Arial Black', Impact, sans-serif; }
-      :root { --vh: 1vh; }
-      @supports (height: 100dvh) { :root { --vh: 1dvh; } } /* ignores the phone's address bar */
-      :root { --sw: min(100vw, 100 * var(--vh) * 16 / 9); } /* the game's long edge: as big as the screen allows */
+
+      /* sizes: the game's long edge (--sw) is as big as the screen allows, keeping the game's shape (--aspect, set by
+         game.js to suit the screen). Phone notches (the safe area) are left alone; dvh ignores the address bar. */
+      :root {
+        --vh: 1vh; --aspect: 1.7778;
+        --safe-x: calc(env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
+        --safe-y: calc(env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
+        --sw: min(100vw - var(--safe-x), (100 * var(--vh) - var(--safe-y)) * var(--aspect));
+      }
+      @supports (height: 100dvh) { :root { --vh: 1dvh; } }
       #play { height: calc(100 * var(--vh)); display: flex; align-items: center; justify-content: center; }
       #frame {
-        position: relative; width: var(--sw); height: calc(var(--sw) * 9 / 16); overflow: hidden; border-radius: 14px;
+        position: relative; width: var(--sw); height: calc(var(--sw) / var(--aspect)); overflow: hidden; border-radius: 14px;
         box-shadow: 0 0 0 2px rgba(57, 255, 20, 0.35), 0 0 48px rgba(255, 43, 214, 0.28);
       }
       #stage { position: absolute; inset: 0; }
       canvas { width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
+
+      /* held upright, the game is turned on its side so it is just as big; the text screens stay upright */
+      @media (orientation: portrait) {
+        :root { --sw: min(100 * var(--vh) - var(--safe-y), (100vw - var(--safe-x)) * var(--aspect)); }
+        #frame { width: calc(var(--sw) / var(--aspect)); height: var(--sw); }
+        #stage { inset: auto; top: 0; left: 100%; width: var(--sw); height: calc(var(--sw) / var(--aspect)); transform-origin: 0 0; transform: rotate(90deg); }
+      }
+      /* on a phone the game runs edge to edge, with no frame */
+      @media (max-height: 500px) and (orientation: landscape), (max-width: 500px) and (orientation: portrait) {
+        #frame { border-radius: 0; box-shadow: none; }
+      }
+
       /* YouTube does not allow its player to be hidden or made smaller than 200x200, so it sits below the game:
          nothing covers it and it is a normal part of the page, but it is off screen until you scroll down */
       #now-playing {
@@ -34,24 +54,25 @@
       #now-playing p { margin: 0; max-width: none; font-size: 14px; font-weight: normal; }
       #now-playing a { padding: 8px 18px; border: 2px solid #39ff14; border-radius: 999px; color: #39ff14; font-weight: bold; text-decoration: none; }
       #music { display: block; width: 200px; height: 200px; border: 0; border-radius: 12px; pointer-events: none; }
-      /* held upright, the game is turned on its side so it is just as big; the text screens stay upright */
-      @media (orientation: portrait) {
-        :root { --sw: min(100 * var(--vh), 100vw * 16 / 9); }
-        #frame { width: calc(var(--sw) * 9 / 16); height: var(--sw); }
-        #stage { inset: auto; top: 0; left: 100%; width: var(--sw); height: calc(var(--sw) * 9 / 16); transform-origin: 0 0; transform: rotate(90deg); }
-      }
+
+      /* start and win screens */
       #screen {
         position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
         gap: 2.2vmin; padding: 4vmin; box-sizing: border-box; text-align: center; color: #fff;
         background: radial-gradient(ellipse at 50% 50%, rgba(18, 0, 31, 0.93) 0%, rgba(18, 0, 31, 0.6) 100%);
       }
       #screen[hidden] { display: none; }
-      #sound {
-        padding: 0.8vmin 2.4vmin; border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 999px; box-shadow: none;
-        background: rgba(255, 255, 255, 0.08); color: #fff; font: bold clamp(12px, 2.2vw, 22px) Arial, sans-serif; cursor: pointer;
-      }
       h1 { margin: 0; font-size: clamp(24px, 6vw, 64px); color: #ff2bd6; text-shadow: 0.05em 0.05em #00f0ff; }
       p { margin: 0; max-width: 28em; white-space: pre-wrap; font-family: Arial, sans-serif; font-weight: bold; font-size: clamp(16px, 3vw, 30px); }
+      small { font-family: Arial, sans-serif; font-size: clamp(12px, 2vw, 20px); color: #39ff14; }
+      button {
+        font: inherit; font-size: clamp(18px, 3.5vw, 36px); padding: 0.4em 1.2em; border: 0; border-radius: 999px;
+        background: #39ff14; color: #12001f; cursor: pointer; box-shadow: 0.1em 0.1em #ff2bd6;
+      }
+      #sound {
+        padding: 0.8vmin 2.4vmin; border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 999px; box-shadow: none;
+        background: rgba(255, 255, 255, 0.08); color: #fff; font: bold clamp(12px, 2.2vw, 22px) Arial, sans-serif;
+      }
       #clue {
         position: relative; margin: 2.5vmin 0 1vmin; padding: 3.5vmin 5vmin 2.8vmin; max-width: 85%; box-sizing: border-box;
         background: #12001f; border: max(3px, 0.5vmin) solid #39ff14; border-radius: 2vmin; box-shadow: max(4px, 1vmin) max(4px, 1vmin) #ff2bd6;
@@ -65,11 +86,6 @@
       }
       #clue strong { font-size: clamp(26px, 6.5vw, 70px); line-height: 1.1; text-shadow: 0.05em 0.05em #00f0ff; }
       @keyframes pop { from { transform: scale(0.4) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
-      small { font-family: Arial, sans-serif; font-size: clamp(12px, 2vw, 20px); color: #39ff14; }
-      button {
-        font: inherit; font-size: clamp(18px, 3.5vw, 36px); padding: 0.4em 1.2em; border: 0; border-radius: 999px;
-        background: #39ff14; color: #12001f; cursor: pointer; box-shadow: 0.1em 0.1em #ff2bd6;
-      }
     </style>
   </head>
   <body>
