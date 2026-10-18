@@ -4,18 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Sympathy 4 the Grinch</title>
-    <meta name="description" content="Rob Santa. Tap to Jump. Don't get caught. A tiny Christmas scavenger-hunt game." />
+    <meta name="description" content="Rob Santa. Tap to Jump. Don't get caught." />
     <meta name="theme-color" content="#12001f" />
     <meta property="og:title" content="Sympathy 4 the Grinch" />
-    <meta property="og:description" content="Rob Santa. Tap to Jump. Don't get caught. A tiny Christmas scavenger-hunt game." />
+    <meta property="og:description" content="Rob Santa. Tap to Jump. Don't get caught." />
     <meta property="og:image" content="https://samstauffer.net/sympathy-4-the-grinch/img/american-dream.png" />
     <meta property="og:url" content="https://samstauffer.net/sympathy-4-the-grinch/" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🎁%3C/text%3E%3C/svg%3E" />
     <style>
       /* page */
       html, body { margin: 0; overscroll-behavior: none; scrollbar-color: #5a0a6e #12001f; }
-      html { background: #12001f radial-gradient(ellipse at 50% 0%, #2d0b45 0%, #12001f 65%) fixed; min-height: 100%; }
-      body { font-family: 'Arial Black', Impact, sans-serif; }
+      html {
+        background: #12001f radial-gradient(ellipse at 50% 0%, #2d0b45 0%, #12001f 65%) fixed; min-height: 100%;
+        touch-action: manipulation; -webkit-tap-highlight-color: transparent; /* no double-tap zoom, no tap flash */
+      }
+      body { font-family: 'Arial Black', Impact, sans-serif; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 
       /* sizes: the game's long edge (--sw) is as big as the screen allows, keeping the game's shape (--aspect, set by
          game.js to suit the screen). Phone notches (the safe area) are left alone; dvh ignores the address bar.
@@ -53,9 +56,10 @@
         display: none; position: absolute; left: 50%; bottom: 5%; transform: translateX(-50%); align-items: center; gap: 0.5em;
         padding: 0.5em 1em; border: 3px solid #ffe600; border-radius: 999px; background: rgba(18, 0, 31, 0.9); color: #ffe600;
         font: bold 18px Arial, sans-serif; white-space: nowrap; animation: flash 1.4s ease-in-out infinite;
+        pointer-events: none; /* never in the way of a tap */
       }
       #rotate span { display: inline-block; font-size: 1.5em; animation: tilt 2.4s ease-in-out infinite; }
-      @media (orientation: portrait) and (pointer: coarse) { #rotate:not([hidden]) { display: flex; } }
+      @media (orientation: portrait) and (pointer: coarse) { #frame[data-screen='start'] #rotate { display: flex; } }
       @keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
       @keyframes tilt { 0%, 25% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
       @media (prefers-reduced-motion: reduce) { #rotate, #rotate span { animation: none; } }
@@ -66,65 +70,70 @@
         display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 40px 16px 56px;
         color: #c9b3df; font-family: Arial, sans-serif; font-size: 14px; text-align: center;
       }
-      #now-playing p { margin: 0; max-width: none; font-size: 14px; font-weight: normal; }
       #now-playing a { padding: 8px 18px; border: 2px solid #39ff14; border-radius: 999px; color: #39ff14; font-weight: bold; text-decoration: none; }
       #music { display: block; width: 200px; height: 200px; border: 0; border-radius: 12px; pointer-events: none; }
 
-      /* start and win screens */
+      /* start and win screens: data-screen on the frame ('start', 'win' or 'none') picks which one shows */
       #screen {
-        position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: calc(2.2 * var(--m)); padding: calc(4 * var(--m)); box-sizing: border-box; text-align: center; color: #fff;
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+        padding: calc(4 * var(--m)); box-sizing: border-box; text-align: center; color: #fff;
         background: radial-gradient(ellipse at 50% 50%, rgba(18, 0, 31, 0.93) 0%, rgba(18, 0, 31, 0.6) 100%);
       }
-      #screen[hidden] { display: none; }
+      #frame[data-screen='none'] #screen { display: none; }
+      #screen section { display: none; flex-direction: column; align-items: center; gap: calc(2.2 * var(--m)); width: 100%; }
+      #frame[data-screen='start'] #intro, #frame[data-screen='win'] #outro { display: flex; }
       h1 { margin: 0; font-size: clamp(24px, calc(6 * var(--u)), 64px); color: #ff2bd6; text-shadow: 0.05em 0.05em #00f0ff; }
-      p { margin: 0; max-width: 28em; white-space: pre-wrap; font-family: Arial, sans-serif; font-weight: bold; font-size: clamp(16px, calc(3 * var(--u)), 30px); }
-      small { font-family: Arial, sans-serif; font-size: clamp(12px, calc(2 * var(--u)), 20px); color: #39ff14; }
+      p { margin: 0; max-width: 28em; font-family: Arial, sans-serif; font-weight: bold; font-size: clamp(16px, calc(3 * var(--u)), 30px); }
       button {
+        min-width: 48px; min-height: 48px; /* a comfortable touch target */
         font: inherit; font-size: clamp(18px, calc(3.5 * var(--u)), 36px); padding: 0.4em 1.2em; border: 0; border-radius: 999px;
         background: #39ff14; color: #12001f; cursor: pointer; box-shadow: 0.1em 0.1em #ff2bd6;
       }
+      button:disabled { opacity: 0.45; cursor: default; }
       #sound {
         padding: calc(0.8 * var(--m)) calc(2.4 * var(--m)); border: 2px solid rgba(255, 255, 255, 0.25); border-radius: 999px; box-shadow: none;
-        background: rgba(255, 255, 255, 0.08); color: #fff; font: bold clamp(12px, calc(2.2 * var(--u)), 22px) Arial, sans-serif;
+        background: rgba(255, 255, 255, 0.08); color: #fff; font-size: clamp(14px, calc(2.6 * var(--u)), 28px);
       }
       #clue {
-        position: relative; margin: calc(2.5 * var(--m)) 0 var(--m); padding: calc(3.5 * var(--m)) calc(5 * var(--m)) calc(2.8 * var(--m));
+        position: relative; margin-top: calc(2.5 * var(--m)); padding: calc(3.5 * var(--m)) calc(5 * var(--m)) calc(2.8 * var(--m));
         max-width: 85%; box-sizing: border-box; background: #12001f; border: max(3px, calc(0.5 * var(--m))) solid #39ff14;
         border-radius: calc(2 * var(--m)); box-shadow: max(4px, var(--m)) max(4px, var(--m)) #ff2bd6;
         animation: pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
       }
-      #clue[hidden] { display: none; }
       #clue span {
         position: absolute; top: 0; left: 50%; transform: translate(-50%, -55%); white-space: nowrap;
         padding: calc(0.5 * var(--m)) calc(2.5 * var(--m)); border-radius: 999px; background: #ff2bd6; color: #fff;
         font-size: clamp(12px, calc(2.4 * var(--u)), 24px); letter-spacing: 0.15em; text-transform: uppercase;
       }
-      #clue strong { font-size: clamp(26px, calc(6.5 * var(--u)), 70px); line-height: 1.1; text-shadow: 0.05em 0.05em #00f0ff; }
+      #clue strong { font-size: clamp(24px, calc(5.2 * var(--u)), 64px); line-height: 1.1; text-wrap: balance; text-shadow: 0.05em 0.05em #00f0ff; }
       @keyframes pop { from { transform: scale(0.4) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
     </style>
   </head>
   <body>
     <main id="play">
-      <div id="frame">
+      <div id="frame" data-screen="start">
         <div id="stage">
           <canvas id="game"></canvas>
           <div id="screen">
-            <h1></h1>
-            <p></p>
-            <button id="sound" type="button">🔊 Sound on</button>
-            <div id="clue" hidden><span></span><strong></strong></div>
-            <small></small>
-            <button id="go"></button>
+            <section id="intro">
+              <h1>Sympathy 4 the Grinch</h1>
+              <p>Rob Santa. Tap to Jump. Don't get caught.</p>
+              <button id="sound" type="button" aria-label="Sound">🔊</button>
+              <button id="go" type="button" disabled>Go!</button>
+            </section>
+            <section id="outro">
+              <h1>Got away with it!</h1>
+              <div id="clue"><span></span><strong></strong></div>
+              <button id="again" type="button">Again!</button>
+            </section>
           </div>
         </div>
-        <div id="rotate"><span>📱</span> Turn your phone sideways!</div>
+        <div id="rotate"><span>📱</span> Turn sideways!</div>
       </div>
     </main>
     <footer id="now-playing">
       <div id="music"></div>
-      <p>♪ Now playing: "sympathy 4 the grinch" by 100 gecs</p>
-      <a href="#play">↑ Back to the game</a>
+      <a href="#play">↑ Play</a>
     </footer>
     <script src="clue.js"></script>
     <script src="game.js"></script>
