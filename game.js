@@ -319,7 +319,7 @@ document.addEventListener('visibilitychange', () => {
 
 reset()
 state = 'start'
-showScreen('Sympathy 4 the Grinch', "Rob Santa. Don't get caught.", 'Survive the song to get your clue', 'Loading...')
+showScreen('Sympathy 4 the Grinch', "Rob Santa. Tap to Jump. Don't get caught.", 'Survive the song to get your clue', 'Loading...')
 button.disabled = true
 loadSprites().then(() => {
   button.disabled = false
