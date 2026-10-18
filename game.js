@@ -22,6 +22,7 @@ const screen = document.getElementById('screen')
 const [title, text, note, button] = ['h1', 'p', 'small', 'button'].map(s => screen.querySelector(s))
 
 const clueCard = document.getElementById('clue')
+const howTo = document.getElementById('how')
 
 // the game runs on its own clock, so it still works with the music muted, blocked or slow to load
 let player
@@ -95,6 +96,7 @@ function showScreen(h, p, n, b, clue) {
   title.textContent = h; text.textContent = p; note.textContent = n; button.textContent = b
   button.disabled = false
   text.hidden = !p
+  howTo.hidden = !!clue
   clueCard.hidden = !clue
   if (clue) {
     clueCard.querySelector('span').textContent = CLUE_LABEL
@@ -317,7 +319,7 @@ document.addEventListener('visibilitychange', () => {
 
 reset()
 state = 'start'
-showScreen('Sympathy 4 the Grinch', "Rob Santa. Don't get caught.\nTap to jump over stuff. Make it to Whoville with the loot!", 'Turn your sound on!', 'Loading...')
+showScreen('Sympathy 4 the Grinch', "Rob Santa. Don't get caught.", 'Survive the song to get your clue', 'Loading...')
 button.disabled = true
 loadSprites().then(() => {
   button.disabled = false
