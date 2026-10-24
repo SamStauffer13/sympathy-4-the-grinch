@@ -5,26 +5,29 @@ const RUN_SECONDS = 132 // the length of the song, so the game ends when it does
 const SONG_ID = '8Lyvv_bhzD0' // YouTube video that plays during the run
 const SPEED = 280, GRAVITY = 1520, JUMP = 760
 const SPEED_RAMP = 0.2 // how much faster the run gets by the end
-const GX = 170 // the Grinch's centre x
-const CHAR_SCALE = 0.63 // character sprite px -> game px
+const GX = 170 // the hero's centre x
+const CHAR_SCALE = 0.63 // Santa's sprite px -> game px
+const HERO_SCALE = 0.8 // the heroes' sprites are drawn smaller in their frame, so they get a bigger scale to match Santa
 const OBSTACLE_MAX = [105, 80] // widest and tallest an obstacle's art is drawn
 const FINISH_HEIGHT = 150 // drawn height of the finish-line art
-const GRINCH_INSET = 0.2, OBSTACLE_INSET = 0.15 // share of a sprite's visible width that is not a hit, each side
+const HERO_INSET = 0.2, OBSTACLE_INSET = 0.15 // share of a sprite's visible width that is not a hit, each side
 const HITBOX_HEIGHT = 0.9 // share of a sprite's visible height that is a hit
 const CELEBRATION = 3.5 // seconds the finish plays before the clue card shows
 const SKIP_AFTER = 1.5 // seconds before a tap skips ahead to the clue card
 const HIT_MESSAGE = 'Ouch!'
 const PINK = '#ff2bd6', GREEN = '#39ff14', CYAN = '#00f0ff', GOLD = '#ffd666'
 const PARTY = [PINK, GREEN, CYAN, '#ffe600', '#ff2d2d']
+const CHARACTERS = [{ id: 'izzy', name: 'Izzy' }, { id: 'ari', name: 'Ari' }, { id: 'marshall', name: 'Marshall' }, { id: 'lauren', name: 'Lauren' }]
 const FONT = "'Arial Black', Impact, sans-serif"
 const calm = matchMedia('(prefers-reduced-motion: reduce)').matches // no screen shake, flashes or blinking
 
 // ---- page ----
 const canvas = document.getElementById('game')
 const ctx = canvas.getContext('2d')
-const frame = document.getElementById('frame') // its data-screen ('start', 'win' or 'none') picks what shows over the game
+const frame = document.getElementById('frame') // its data-screen ('pick', 'start', 'win' or 'none') picks what shows over the game
 const goButton = document.getElementById('go'), againButton = document.getElementById('again')
-const soundButton = document.getElementById('sound')
+const soundButton = document.getElementById('sound'), changeButton = document.getElementById('change')
+const cast = document.getElementById('cast')
 const tagline = document.querySelector('#intro p')
 const setScreen = name => { frame.dataset.screen = name }
 
@@ -79,11 +82,42 @@ async function goLandscape() {
   } catch {}
 }
 
+// ---- the hero: picked on the first screen, remembered for next time ----
+let hero = CHARACTERS[0].id
+try {
+  const saved = localStorage.getItem('hero')
+  if (CHARACTERS.some(c => c.id === saved)) hero = saved
+} catch {}
+
+cast.replaceChildren(...CHARACTERS.map(c => {
+  const card = document.createElement('button')
+  card.type = 'button'
+  card.dataset.id = c.id
+  card.innerHTML = `<i><img src="img/characters/${c.id}-idle.webp" alt="" draggable="false"></i>${c.name}`
+  card.addEventListener('click', () => choose(c.id))
+  return card
+}))
+
+function showHero() {
+  const name = CHARACTERS.find(c => c.id === hero).name
+  changeButton.textContent = `Playing as ${name} ✎`
+  cast.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === hero))
+}
+
+function choose(id) {
+  hero = id
+  try { localStorage.setItem('hero', id) } catch {}
+  if (sprites[`${id}-run-01`]) heroBox = box(sprites[`${id}-run-01`], HERO_SCALE, HERO_INSET)
+  showHero()
+  setScreen('start')
+}
+changeButton.addEventListener('click', () => setScreen('pick'))
+
 // ---- art: img/manifest.json lists every sprite; contentBounds is [x, y, width, height] of the visible art ----
 const sprites = {}
 const finish = new Image()
-let obstacleIds = [], lastObstacle, grinchBox
-const isCharacter = id => /^(grinch|santa)-/.test(id)
+let obstacleIds = [], lastObstacle, heroBox
+const isCharacter = id => /^(grinch|santa|izzy|ari|marshall|lauren)-/.test(id)
 
 async function loadSprites() {
   finish.src = 'img/american-dream.png'
@@ -102,7 +136,7 @@ async function loadSprites() {
   }))
   obstacleIds = Object.keys(sprites).filter(id => !isCharacter(id))
   if (!obstacleIds.length) throw new Error('no obstacles loaded')
-  grinchBox = box(sprites['grinch-run-01'], CHAR_SCALE, GRINCH_INSET)
+  heroBox = box(sprites[`${hero}-run-01`], HERO_SCALE, HERO_INSET)
 }
 
 // hitbox relative to the sprite's centre, shrunk by inset on each side
@@ -186,11 +220,11 @@ function update(dt) {
   invuln -= dt
   lunge = Math.max(0, lunge - dt / 4)
   if (invuln <= 0) {
-    const o = obstacles.find(o => GX + grinchBox.r > o.x + o.box.l && GX + grinchBox.l < o.x + o.box.r && y < o.box.h)
+    const o = obstacles.find(o => GX + heroBox.r > o.x + o.box.l && GX + heroBox.l < o.x + o.box.r && y < o.box.h)
     if (o) hit(o)
   }
   obstacles.forEach(o => {
-    if (!o.cleared && GX + grinchBox.l > o.x + o.box.r) {
+    if (!o.cleared && GX + heroBox.l > o.x + o.box.r) {
       o.cleared = true
       say(o.s.name, 1.2) // the obstacle's name pops up as you clear it
     }
@@ -198,7 +232,7 @@ function update(dt) {
   if (progress >= RUN_SECONDS) win()
 }
 
-// ---- the finish: Santa wipes out, the globe unlocks, and the Grinch celebrates ----
+// ---- the finish: Santa wipes out, the globe unlocks, and the hero celebrates ----
 // where the finish line is: it slides in as the run ends
 function finishRect() {
   return { x: GX + 60 + (RUN_SECONDS - progress) * speed, w: finish.width * FINISH_HEIGHT / finish.height }
@@ -391,14 +425,14 @@ function drawSanta() {
   if (lunge > 0.3) emoji('💢', x + 50, GROUND - 100, 36)
 }
 
-function drawGrinch() {
+function drawHero() {
   if (invuln > 0 && !calm && Math.floor(invuln * 6) % 2) return // blinks three times a second after a hit
   const t = party?.t // at the finish he hops for joy and does a flip on the way up
   const hop = party ? Math.abs(Math.sin(t * 5)) * 80 : y
   const flip = party && !calm && t > 0.3 && t < 1 ? ((t - 0.3) / 0.7) * Math.PI * 2 : 0
   const pose = state === 'run' ? (y > 0 ? 'jump' : runFrame()) : hop > 4 ? 'jump' : 'idle'
   ctx.globalAlpha = invuln > 0 && calm ? 0.5 : 1 // with reduced motion he fades instead of blinking
-  drawSprite(sprites[`grinch-${pose}`], GX, GROUND + 4 - hop, CHAR_SCALE, flip)
+  drawSprite(sprites[`${hero}-${pose}`], GX, GROUND + 4 - hop, HERO_SCALE, flip)
   ctx.globalAlpha = 1
 }
 
@@ -443,7 +477,7 @@ function draw() {
   if (state !== 'start') drawFinish()
   obstacles.forEach(o => drawSprite(o.s, o.x, GROUND + 4, o.k))
   drawSanta()
-  drawGrinch()
+  drawHero()
   if (state !== 'start') drawBar()
   drawHint()
   if (popup) drawPopup()
@@ -485,6 +519,7 @@ document.addEventListener('visibilitychange', () => {
 
 fit()
 reset()
+showHero()
 state = 'start'
 loadSprites()
   .then(() => {
