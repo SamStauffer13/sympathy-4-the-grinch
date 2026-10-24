@@ -7,7 +7,6 @@ const SPEED = 280, GRAVITY = 1520, JUMP = 760
 const SPEED_RAMP = 0.2 // how much faster the run gets by the end
 const GX = 170 // the hero's centre x
 const CHAR_SCALE = 0.63 // Santa's sprite px -> game px
-const HERO_SCALE = 0.8 // the heroes' sprites are drawn smaller in their frame, so they get a bigger scale to match Santa
 const OBSTACLE_MAX = [105, 80] // widest and tallest an obstacle's art is drawn
 const FINISH_HEIGHT = 150 // drawn height of the finish-line art
 const HERO_INSET = 0.2, OBSTACLE_INSET = 0.15 // share of a sprite's visible width that is not a hit, each side
@@ -17,7 +16,12 @@ const SKIP_AFTER = 1.5 // seconds before a tap skips ahead to the clue card
 const HIT_MESSAGE = 'Ouch!'
 const PINK = '#ff2bd6', GREEN = '#39ff14', CYAN = '#00f0ff', GOLD = '#ffd666'
 const PARTY = [PINK, GREEN, CYAN, '#ffe600', '#ff2d2d']
-const CHARACTERS = [{ id: 'izzy', name: 'Izzy' }, { id: 'ari', name: 'Ari' }, { id: 'marshall', name: 'Marshall' }, { id: 'lauren', name: 'Lauren' }]
+// scale: the kids' sprites sit smaller in their frame than the Grinch's and Santa's, so they are drawn bigger to match
+const CHARACTERS = [
+  { id: 'izzy', name: 'Izzy', scale: 0.8 }, { id: 'ari', name: 'Ari', scale: 0.8 },
+  { id: 'marshall', name: 'Marshall', scale: 0.8 }, { id: 'lauren', name: 'Lauren', scale: 0.8 },
+  { id: 'grinch', name: 'Luigi', scale: CHAR_SCALE },
+]
 const FONT = "'Arial Black', Impact, sans-serif"
 const calm = matchMedia('(prefers-reduced-motion: reduce)').matches // no screen shake, flashes or blinking
 
@@ -98,6 +102,8 @@ cast.replaceChildren(...CHARACTERS.map(c => {
   return card
 }))
 
+const heroScale = () => CHARACTERS.find(c => c.id === hero).scale
+
 function showHero() {
   const name = CHARACTERS.find(c => c.id === hero).name
   changeButton.textContent = `Playing as ${name} ✎`
@@ -107,7 +113,7 @@ function showHero() {
 function choose(id) {
   hero = id
   try { localStorage.setItem('hero', id) } catch {}
-  if (sprites[`${id}-run-01`]) heroBox = box(sprites[`${id}-run-01`], HERO_SCALE, HERO_INSET)
+  if (sprites[`${id}-run-01`]) heroBox = box(sprites[`${id}-run-01`], heroScale(), HERO_INSET)
   showHero()
   setScreen('start')
 }
@@ -136,7 +142,7 @@ async function loadSprites() {
   }))
   obstacleIds = Object.keys(sprites).filter(id => !isCharacter(id))
   if (!obstacleIds.length) throw new Error('no obstacles loaded')
-  heroBox = box(sprites[`${hero}-run-01`], HERO_SCALE, HERO_INSET)
+  heroBox = box(sprites[`${hero}-run-01`], heroScale(), HERO_INSET)
 }
 
 // hitbox relative to the sprite's centre, shrunk by inset on each side
@@ -432,7 +438,7 @@ function drawHero() {
   const flip = party && !calm && t > 0.3 && t < 1 ? ((t - 0.3) / 0.7) * Math.PI * 2 : 0
   const pose = state === 'run' ? (y > 0 ? 'jump' : runFrame()) : hop > 4 ? 'jump' : 'idle'
   ctx.globalAlpha = invuln > 0 && calm ? 0.5 : 1 // with reduced motion he fades instead of blinking
-  drawSprite(sprites[`${hero}-${pose}`], GX, GROUND + 4 - hop, HERO_SCALE, flip)
+  drawSprite(sprites[`${hero}-${pose}`], GX, GROUND + 4 - hop, heroScale(), flip)
   ctx.globalAlpha = 1
 }
 
